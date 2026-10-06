@@ -1,0 +1,54 @@
+HOUSEHOLD LEDGER - phone app that runs without Claude
+=====================================================
+
+What's in this folder
+  index.html, sw.js, manifest.webmanifest, and 4 icon files.
+  Keep them together. The app needs a free web address before a phone can install it.
+
+1. PUT IT ONLINE FOR FREE WITH GITHUB PAGES (about 5 minutes, works from a phone)
+  a. Go to github.com and sign in (or create a free account).
+  b. Tap + (top right) > New repository. Name it: ledger
+     Set it to Public (free accounts need Public for Pages).
+     Your spending data is NOT in these files. It only ever lives on your phones.
+     Tap Create repository.
+  c. On the new repository page tap "uploading an existing file"
+     (or Add file > Upload files). Pick all the files from this folder at once
+     (unzip the download first). Tap Commit changes.
+     On a phone, switch the browser to Desktop site if you can't see the upload option.
+  d. Go to Settings > Pages. Under "Build and deployment", Source: Deploy from a branch,
+     Branch: main, folder: / (root). Tap Save.
+  e. Wait 1-2 minutes. Your app is at:
+       https://YOUR-GITHUB-NAME.github.io/ledger/
+
+  Any other free static host works too (Cloudflare Pages, Netlify): upload the same files.
+
+2. INSTALL ON EACH PHONE
+  Android: open the address in Chrome > tap the menu (three dots) > Install app
+           (or Add to Home screen).
+  iPhone:  open the address in Safari > tap Share > Add to Home Screen.
+  Always open it from the home-screen icon. On iPhone this also keeps Safari from
+  clearing the app's data.
+
+3. FIRST RUN, ON EACH PHONE
+  Settings > This phone > Belongs to: pick who uses this phone.
+  Settings > Household: enter take-home pay and both names.
+  Settings > Smart category suggestions: turn on to download the on-device AI model
+  (about 25 MB, once, best on Wi-Fi). After that it works offline.
+
+4. KEEPING BOTH PHONES IN STEP
+  Phone A: Settings > Sync & backup > Send backup > send the file to Phone B
+           (WhatsApp, email, Google Drive...).
+  Phone B: in the app tap Merge a backup and pick the file.
+  Then do the same from B to A. The newest change to each item wins, deletions carry
+  over, and nothing is duplicated. Once a week or once a month is plenty.
+  The backup file is also your safety copy: keep a recent one in Google Drive.
+
+5. IMPORTING STATEMENTS
+  Download transactions as CSV from your bank's website, then in the app:
+  Import > pick the account > Choose files > Import.
+  Rows the rules don't recognise go to "Needs a category" (with an AI suggestion
+  if it's on). Save them once with "Remember" ticked and they're automatic next time.
+
+6. UPDATING THE APP LATER
+  Upload the new index.html to the same GitHub repository (replace the old one).
+  Phones pick it up the next time they open the app online. Your data isn't touched.
