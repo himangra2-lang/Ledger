@@ -160,6 +160,25 @@ details[open] summary{margin-bottom:10px}
 .chart text{fill:var(--muted);font:11px var(--f-num)}
 .legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog form{padding:16px;display:flex;flex-direction:column;gap:12px}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.split-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto;gap:8px;align-items:center}
+.row .main.tap{cursor:pointer}
+.row .main.tap:hover .t{text-decoration:underline}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;font-size:.9rem}
+.kv .num{text-align:right}
+.kv .tot{font-weight:700;border-top:1px solid var(--line);padding-top:6px}
+.status{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.sumtext{display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.sumtext b{font-weight:600}
+.find-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.find-grid{grid-template-columns:1fr 1fr}}
+.cardbill{border-top:1px solid var(--line);padding:12px 0;display:flex;flex-direction:column;gap:8px}
+.cardbill:first-child{border-top:0}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inline input{width:8em}
 @media (prefers-reduced-motion:no-preference){.meter>i,.cat .bar i{transition:width .3s ease}}
 </style>
 </head>
@@ -177,6 +196,7 @@ details[open] summary{margin-bottom:10px}
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
     <button role="tab" data-tab="expenses" aria-selected="false">Expenses</button>
+    <button role="tab" data-tab="income" aria-selected="false">Income</button>
     <button role="tab" data-tab="import" aria-selected="false">Import<span class="badge" id="revBadge" hidden>0</span></button>
     <button role="tab" data-tab="bills" aria-selected="false">Bills</button>
     <button role="tab" data-tab="savings" aria-selected="false">Savings</button>
@@ -189,7 +209,7 @@ details[open] summary{margin-bottom:10px}
   <div id="banner" class="notice" hidden></div>
 
   <section class="summary" aria-label="Month summary">
-    <div><span class="label">Take-home</span><span class="v" id="sIncome">—</span></div>
+    <div><span class="label" id="sIncomeL">Income</span><span class="v" id="sIncome">—</span></div>
     <div><span class="label">Spent</span><span class="v" id="sSpent">—</span></div>
     <div><span class="label">Left in budget</span><span class="v" id="sLeft">—</span></div>
     <div><span class="label">Saved</span><span class="v" id="sSaved">—</span></div>
@@ -197,6 +217,14 @@ details[open] summary{margin-bottom:10px}
 
   <!-- OVERVIEW -->
   <div data-panel="overview" class="wrap">
+    <section class="panel" id="roomPanel" hidden>
+      <div class="status"><div><h2 id="roomTitle">Roommate rent</h2><p class="small muted" id="roomText"></p></div><div id="roomBtns"></div></div>
+    </section>
+    <details class="panel" id="sumPanel">
+      <summary style="font-family:var(--f-display);font-size:1.05rem;color:var(--ink)">Month summary</summary>
+      <div class="sumtext" id="sumBody"></div>
+      <div class="row-btns" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px"><button class="btn ghost sm" type="button" id="sumShare">Share summary</button><span class="small muted" id="sumMsg"></span></div>
+    </details>
     <section class="panel">
       <div class="panel-head"><h2>Budget pace</h2><span class="small muted" id="paceNote"></span></div>
       <div class="meter" id="meter"><i style="width:0"></i><b hidden></b></div>
@@ -210,6 +238,10 @@ details[open] summary{margin-bottom:10px}
       <div class="panel-head"><h2>Cards: rewards and annual fees</h2><span class="small muted" id="feeNote"></span></div>
       <div class="tbl-wrap"><table id="cardTable"></table></div>
       <p class="small" id="missedNote"></p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Money in and out</h2><span class="small muted" id="flowNote"></span></div>
+      <div class="list" id="flowList"></div>
     </section>
     <div class="two">
       <section class="panel">
@@ -234,12 +266,69 @@ details[open] summary{margin-bottom:10px}
         <div class="f s2"><label for="exCard">Paid with</label><select id="exCard"></select></div>
         <div class="f s2"><label for="exWho">Who</label><select id="exWho"></select></div>
         <div class="f s2 m6"><label for="exNote">Note</label><input id="exNote" type="text" maxlength="80" placeholder="Save-On-Foods, Tim Hortons…"></div>
-        <div class="form-foot"><span class="hint" id="exHint"></span><button class="btn" type="submit">Add expense</button></div>
+        <div class="form-foot"><span class="hint" id="exHint"></span><button class="btn" type="submit" id="exSubmit">Add expense</button></div>
       </form>
     </section>
     <section class="panel">
-      <div class="panel-head"><h2>This month</h2><button class="btn ghost sm" id="clearEx" hidden>Remove example entries</button></div>
+      <div class="panel-head"><h2>Find</h2><button class="btn ghost sm" type="button" id="findClear" hidden>Clear</button></div>
+      <input id="findQ" type="search" placeholder="Search merchant or note" aria-label="Search expenses">
+      <div class="find-grid">
+        <div class="f"><label for="findPeriod">When</label><select id="findPeriod"><option value="month">This month</option><option value="year">This year</option><option value="all">Everything</option></select></div>
+        <div class="f"><label for="findCat">Category</label><select id="findCat"></select></div>
+        <div class="f"><label for="findCard">Card</label><select id="findCard"></select></div>
+        <div class="f"><label for="findWho">Who</label><select id="findWho"></select></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2 id="exHead">This month</h2><span class="small muted num" id="findTotal"></span><button class="btn ghost sm" id="clearEx" hidden>Remove example entries</button></div>
+      <p class="small muted">Tap an entry to edit or split it.</p>
       <div class="list" id="exList"></div>
+    </section>
+  </div>
+
+  <!-- INCOME -->
+  <div data-panel="income" class="wrap" hidden>
+    <section class="panel">
+      <h2>Add income</h2>
+      <form class="add" id="inForm" autocomplete="off">
+        <div class="f s2"><label for="inAmt">Amount received ($)</label><input id="inAmt" type="number" inputmode="decimal" step="0.01" min="0" required placeholder="0.00"></div>
+        <div class="f s2"><label for="inDate">Date</label><input id="inDate" type="date" required></div>
+        <div class="f s2 m6"><label for="inSrc">Source</label><select id="inSrc"></select></div>
+        <div class="f s2"><label for="inWho">Who</label><select id="inWho"></select></div>
+        <div class="f s6"><label for="inNote">Note</label><input id="inNote" type="text" maxlength="80" placeholder="Pay period, hours, October rent…"></div>
+        <details class="f s6"><summary>Pay stub details, for tax tracking (optional)</summary>
+          <div class="grid6" style="margin-top:8px">
+            <div class="f s3"><label for="inGross">Gross pay ($)</label><input id="inGross" type="number" inputmode="decimal" step="0.01" min="0"></div>
+            <div class="f s3"><label for="inTax">Income tax deducted ($)</label><input id="inTax" type="number" inputmode="decimal" step="0.01" min="0"></div>
+          </div>
+        </details>
+        <div class="form-foot"><span class="hint" id="inHint">Log each paycheque as it lands, take-home amount. Your roommate's rent counts as income.</span><button class="btn" type="submit" id="inSubmit">Add income</button></div>
+      </form>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Paycheque estimate</h2><span class="small muted">before payday</span></div>
+      <div id="estEmpty" class="small muted">Add your jobs (hourly rate and pay frequency) in Settings → Jobs to estimate take-home pay from hours worked.</div>
+      <div class="grid6" id="estForm" hidden>
+        <div class="f s2 m6"><label for="estJob">Job</label><select id="estJob"></select></div>
+        <div class="f s2"><label for="estHrs">Regular hours</label><input id="estHrs" type="number" inputmode="decimal" step="0.25" min="0" placeholder="0"></div>
+        <div class="f s2"><label for="estOt">Overtime hours (1.5×)</label><input id="estOt" type="number" inputmode="decimal" step="0.25" min="0" placeholder="0"></div>
+        <div class="f s3"><label for="estStat">Stat holiday hours (1.5×)</label><input id="estStat" type="number" inputmode="decimal" step="0.25" min="0" placeholder="0"></div>
+        <div class="f s3"><label for="estExtra">Shift premiums, other ($)</label><input id="estExtra" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
+      </div>
+      <div class="kv" id="estOut" hidden></div>
+      <div class="row-btns" id="estBtns" hidden style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost sm" type="button" id="estUse">Fill in Add income</button></div>
+      <p class="small muted" id="estNote" hidden>Estimate for a BC resident using 2026 federal and BC tax rates, CPP and EI. Each employer withholds as if it's your only job. Real cheques also depend on benefits, pension and claim codes, so enter those under Other deductions on the job.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2 id="taxTitle">Tax time</h2><span class="small muted">rough estimate</span></div>
+      <div id="taxBody"></div>
+      <p class="small muted">Uses gross pay and income tax from the pay stub details on each paycheque. Doesn't count RRSP or FHSA deductions, which lower what you owe, or other income. Roommate rent on a cost-sharing basis usually isn't taxable, but check CRA's rules. Not tax advice.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>This month</h2><span class="small muted num" id="inTotal"></span></div>
+      <p class="small muted">Tap an entry to edit it.</p>
+      <div class="cats" id="inBySource"></div>
+      <div class="list" id="inList"></div>
     </section>
   </div>
 
@@ -268,8 +357,8 @@ details[open] summary{margin-bottom:10px}
       <div id="imResult" hidden></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h2>Needs a category</h2><button class="btn sm" id="rvAll" hidden>Save all with a category</button></div>
-      <p class="small muted">Transactions the rules didn't recognize. Pick a category or Skip and tap Save. With "Remember" ticked, that merchant is sorted automatically next time.</p>
+      <div class="panel-head"><h2>To check</h2><button class="btn sm" id="rvAll" hidden>Save all with a category</button></div>
+      <p class="small muted">Purchases the rules didn't recognize, and money that came into a bank account (mark pay and roommate rent as income, skip transfers). Pick one and tap Save. With "Remember" ticked, that merchant is sorted automatically next time.</p>
       <div id="rvList"></div>
     </section>
     <section class="panel">
@@ -280,6 +369,11 @@ details[open] summary{margin-bottom:10px}
 
   <!-- BILLS -->
   <div data-panel="bills" class="wrap" hidden>
+    <section class="panel">
+      <div class="panel-head"><h2>Credit card bills</h2><span class="small muted" id="ccNote"></span></div>
+      <div id="ccList"></div>
+      <p class="small muted">Statement amounts come from the card spending you've logged or imported. Tap "Set amount" to type the real statement balance. Payments you record here, and card payments in imported statements, aren't counted as spending.</p>
+    </section>
     <section class="panel">
       <div class="panel-head"><h2>Recurring bills & subscriptions</h2><span class="small muted num" id="billTotals"></span></div>
       <div class="list" id="billList"></div>
@@ -337,7 +431,7 @@ details[open] summary{margin-bottom:10px}
     <section class="panel">
       <div class="panel-head"><h2 id="yearTitle">Year at a glance</h2><span class="small muted num" id="yearTot"></span></div>
       <div class="chart" id="yearChart"></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>Spent</span><span><i style="background:var(--bar2)"></i>Over budget months marked red</span><span>— monthly budget</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Spent</span><span><i style="background:var(--bar2)"></i>Over budget months marked red</span><span>— monthly budget</span><span><i style="background:var(--good);border-radius:50%"></i>Income</span></div>
     </section>
     <section class="panel">
       <div class="panel-head"><h2>By category</h2><span class="small muted">scroll sideways for every month</span></div>
@@ -351,10 +445,31 @@ details[open] summary{margin-bottom:10px}
     <section class="panel">
       <h2>Household</h2>
       <div class="grid6">
-        <div class="f s2 m6"><label for="setIncome">Monthly take-home, combined ($)</label><input id="setIncome" data-set="income" type="number" inputmode="decimal" min="0" step="1"></div>
+        <div class="f s2 m6"><label for="setIncome">Expected monthly income ($)</label><input id="setIncome" data-set="income" type="number" inputmode="decimal" min="0" step="1"></div>
         <div class="f s2"><label for="pp0">Person 1</label><input id="pp0" data-person="0" type="text" maxlength="20"></div>
         <div class="f s2"><label for="pp1">Person 2</label><input id="pp1" data-person="1" type="text" maxlength="20"></div>
       </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Jobs</h2><button class="btn ghost sm" id="addJob" type="button">Add job</button></div>
+      <p class="small muted">Used by the paycheque estimate. Other deductions are per pay: pension, union dues, benefits.</p>
+      <div class="tbl-wrap"><table id="jobTbl"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Roommate</h2>
+      <div class="grid6">
+        <div class="f s2 m6"><label for="rmName">Name</label><input id="rmName" data-rm="name" type="text" maxlength="30" placeholder="Raj"></div>
+        <div class="f s2"><label for="rmAmt">Monthly rent ($)</label><input id="rmAmt" data-rm="amount" type="number" inputmode="decimal" min="0" step="1"></div>
+        <div class="f s2"><label for="rmDue">Due on day</label><input id="rmDue" data-rm="due" type="number" min="1" max="31" step="1"></div>
+      </div>
+      <p class="small muted">Leave the rent empty to hide the roommate check on Overview.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Income sources</h2></div>
+      <p class="small muted">Expected income is only used for months where no pay is logged yet. Sources are the choices when you add income.</p>
+      <div class="list" id="srcList"></div>
+      <div class="grid6"><div class="f s3 m6"><label for="srcNew">New source</label><input id="srcNew" type="text" maxlength="30" placeholder="Me pay (Northern Health)"></div>
+      <div class="f s3" style="justify-content:flex-end"><button class="btn ghost" id="srcAdd" type="button">Add source</button></div></div>
     </section>
     <section class="panel">
       <h2>This phone</h2>
@@ -406,12 +521,27 @@ details[open] summary{margin-bottom:10px}
     <section class="panel" id="exportPanel">
       <h2>Export</h2>
       <p class="small muted">Every expense as a CSV file that opens in Google Sheets or Excel.</p>
-      <div><button class="btn ghost" id="exportBtn">Export all expenses (CSV)</button></div>
+      <div class="row-btns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="exportBtn">Export all expenses (CSV)</button><button class="btn ghost" id="exportInc">Income (CSV)</button></div>
     </section>
     <p class="status" id="saveStatus"></p>
   </div>
 </div>
 
+<dialog id="editDlg" aria-labelledby="dlgTitle">
+  <form method="dialog" id="editForm" autocomplete="off">
+    <div class="dlg-head"><h2 id="dlgTitle">Edit</h2><button class="x" type="button" id="dlgClose" aria-label="Close">×</button></div>
+    <div class="grid6" id="dlgFields"></div>
+    <div id="dlgSplit" hidden>
+      <h3 style="margin:4px 0 6px">Split into parts</h3>
+      <div id="splitRows" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="small" id="splitLeft"></p>
+    </div>
+    <div class="row-btns" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between">
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" type="submit" id="dlgSave">Save</button><button class="btn ghost" type="button" id="dlgSplitBtn">Split</button></div>
+      <button class="btn ghost" type="button" id="dlgDelete" style="color:var(--bad)">Delete</button>
+    </div>
+  </form>
+</dialog>
 <script>
 function normDesc(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim(); }
 
@@ -651,8 +781,9 @@ function makeId(account, row) {
 }
 
 /** Sort parsed rows into expenses, review and skipped. Mutates `existing` so overlapping files don't double-import. */
-function classifyRows(rows, acct, rules, cats, existing) {
-  var res = { expenses: [], review: [], skipped: 0, dupes: 0 }, seen = {};
+function classifyRows(rows, acct, rules, cats, existing, opts) {
+  opts = opts || {};
+  var res = { expenses: [], review: [], income: [], payments: [], skipped: 0, dupes: 0 }, seen = {};
   rows.forEach(function (r) {
     var base = makeId(acct.name, r);
     seen[base] = (seen[base] || 0) + 1;
@@ -660,13 +791,21 @@ function classifyRows(rows, acct, rules, cats, existing) {
     if (existing[id]) { res.dupes++; return; }
     existing[id] = 1;
     var rule = matchRule(r.desc, rules);
-    if (rule && rule.cat.toLowerCase() === 'skip') { res.skipped++; return; }
+    var isCard = !/bank/i.test(acct.type);
+    if (rule && rule.cat.toLowerCase() === 'skip') { if (isCard && r.spend < 0) res.payments.push({ date: r.date, amount: -r.spend, id: id }); res.skipped++; return; }
+    if (rule && /^inc:/.test(rule.cat) && r.spend < 0) {
+      res.income.push({ date: r.date, amount: -r.spend, source: rule.cat.slice(4), note: cleanMerchant(r.desc), id: id });
+      return;
+    }
     if (rule && cats.indexOf(rule.cat) >= 0) {
       res.expenses.push({ date: r.date, amount: r.spend, category: rule.cat, note: cleanMerchant(r.desc), id: id });
       return;
     }
-    if (r.spend < 0 && /bank/i.test(acct.type)) { res.skipped++; return; } // pay, transfers in
-    if (r.spend < 0 && /\bPAYMENT\b|PAIEMENT|\bPMT\b/i.test(r.desc)) { res.skipped++; return; } // paying off a card
+    if (r.spend < 0 && /bank/i.test(acct.type)) { // pay, roommate rent, transfers in
+      if (opts.reviewIncome && -r.spend >= 20) { res.review.push({ date: r.date, amount: r.spend, desc: r.desc, keyword: suggestKeyword(r.desc), id: id, kind: 'in' }); return; }
+      res.skipped++; return;
+    }
+    if (r.spend < 0 && /\bPAYMENT\b|PAIEMENT|\bPMT\b/i.test(r.desc)) { res.payments.push({ date: r.date, amount: -r.spend, id: id }); res.skipped++; return; } // paying off a card
     res.review.push({ date: r.date, amount: r.spend, desc: r.desc, keyword: suggestKeyword(r.desc), id: id });
   });
   return res;
@@ -792,7 +931,7 @@ const DEFAULTS={
   {id:"simplii",name:"Simplii Visa",base:0.5,rates:{dining:4,groceries:1.5,fuel:1.5,health:1.5,subs:1.5,phone:1.5,utilities:1.5}},
   {id:"rogers",name:"Rogers Red",base:1.5,rates:{}},
   {id:"debit",name:"Debit / e-Transfer",base:0,rates:{}}],
- fees:{}, accounts:[], funds:[]};
+ fees:{}, accounts:[], funds:[], incomeSources:null, jobs:[], roommate:{name:"",amount:0,due:1}};
 
 const fmt=new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD"});
 const fmt0=new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0});
@@ -803,10 +942,14 @@ const today=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth(
 const sum=(a,f)=>a.reduce((s,x)=>s+(Number(f(x))||0),0);
 
 const S={month:today().slice(0,7),tab:"overview",settings:structuredClone(DEFAULTS),rules:[],
- yearExp:[],bills:[],contribs:[],review:[],log:[],ignored:[],db:null,user:null,profiles:{},unsubYear:null,year:null,
+ yearExp:[],yearInc:[],payments:[],stmts:{},bills:[],contribs:[],review:[],log:[],ignored:[],db:null,user:null,profiles:{},unsubYear:null,year:null,
  cardTouched:false,drafts:{},busy:false};
 const people=()=>{const p=S.settings.people||["Me","Wife"];return [p[0]||"Me",p[1]||"Wife","Joint"]};
 const monthExp=()=>S.yearExp.filter(e=>e.month===S.month);
+const monthInc=()=>S.yearInc.filter(e=>e.month===S.month);
+const incomeSources=()=>{const s=S.settings.incomeSources;if(Array.isArray(s)&&s.length)return s;const p=people();return [p[0]+" pay",p[1]+" pay","Roommate rent","Other income"]};
+const isRoommate=src=>/room\s*mate|roommate|rent/i.test(src||"");
+function incomeFor(m){const a=sum(S.yearInc.filter(e=>e.month===m),e=>e.amount);return {actual:a,used:a||Number(S.settings.income)||0,estimated:!a&&!!Number(S.settings.income)}}
 
 const card=id=>S.settings.cards.find(c=>c.id===id);
 const rate=(cid,cat)=>{const c=card(cid);if(!c)return 0;const r=c.rates?.[cat];return Number(r??c.base)||0};
@@ -823,13 +966,18 @@ function fillDynamic(){
  const cp=S.settings.cards.map(c=>[c.id,c.name]);["exCard","bCard"].forEach(id=>fillSelect($(id),cp,true));
  const pp=people().map(p=>[p,p]);const w=$("exWho").value;fillSelect($("exWho"),pp,true);if(!w)$("exWho").value=people().includes(thisPhone())?thisPhone():"Joint";
  fillSelect($("thisPhone"),[["","Not set"],...people().slice(0,2).map(p=>[p,p])],true);if(!$("thisPhone").value)$("thisPhone").value=thisPhone();
+ fillSelect($("inSrc"),incomeSources().map(x=>[x,x]),true);
+ {const w2=$("inWho").value;fillSelect($("inWho"),pp,true);if(!w2)$("inWho").value=typeof thisPhone==="function"&&people().includes(thisPhone())?thisPhone():people()[0];}
+ fillSelect($("ruleCat"),[...CATS,...incomeSources().map(x=>["inc:"+x,"Income: "+x]),["skip","Skip (not spending)"]],true);
+ fillSelect($("findCat"),[["","All"],...CATS],true);fillSelect($("findCard"),[["","All"],...S.settings.cards.map(c=>[c.id,c.name])],true);fillSelect($("findWho"),[["","All"],...people().map(p=>[p,p])],true);
+ fillSelect($("estJob"),(S.settings.jobs||[]).map((j,i)=>[String(i),`${j.name||"Job"} · ${j.person||""}`]),true);
  fillSelect($("svAcct"),[...ACCTS,...S.settings.funds.map(f=>[fundKey(f),f.name+" (fund)"])],true);
  fillSelect($("imAcct"),S.settings.accounts.map(a=>[a.name,`${a.name} · ${a.type}`]),true);
  syncImportOpts();
 }
 fillSelect($("exCat"),CATS);fillSelect($("bCat"),CATS);fillSelect($("ruleCat"),[...CATS,["skip","Skip (not spending)"]]);
 fillSelect($("bStart"),MONTHS.map((m,i)=>[String(i+1),m]));
-$("exDate").value=today();$("svDate").value=today();$("bStart").value=String(new Date().getMonth()+1);
+$("exDate").value=today();$("svDate").value=today();$("inDate").value=today();$("bStart").value=String(new Date().getMonth()+1);
 fillDynamic();
 
 function suggestCard(){const {card:c,rate:r}=bestCard($("exCat").value);if(!c)return;
@@ -851,7 +999,7 @@ try{const t=(location.hash||"").slice(1)||localStorage.getItem("hl-tab");if(t&&d
 $("prev").onclick=()=>setMonth(shiftMonth(S.month,-1));
 $("next").onclick=()=>setMonth(shiftMonth(S.month,1));
 function setMonth(m){S.month=m;$("monthLabel").textContent=monthLabel(m);
- const d=today();$("exDate").value=d.startsWith(m)?d:`${m}-01`;$("svDate").value=$("exDate").value;
+ const d=today();$("exDate").value=d.startsWith(m)?d:`${m}-01`;$("svDate").value=$("exDate").value;$("inDate").value=$("exDate").value;
  subscribeYear();render()}
 $("monthLabel").textContent=monthLabel(S.month);
 
@@ -872,8 +1020,9 @@ function fundStats(f){
 
 /* ---------- render ---------- */
 function render(){
- const c=calc(),inc=Number(S.settings.income)||0;
- $("sIncome").textContent=inc?fmt0.format(inc):"Not set";
+ const c=calc(),I=incomeFor(S.month),inc=I.used;
+ $("sIncome").textContent=I.actual?fmt0.format(I.actual):(I.estimated?fmt0.format(inc):"None yet");
+ $("sIncomeL").textContent=I.estimated?"Income (expected)":"Income";
  $("sSpent").textContent=fmt.format(c.spent);
  $("sLeft").textContent=fmt.format(c.budget-c.spent);$("sLeft").style.color=c.budget-c.spent<0?"var(--bad)":"";
  $("sSaved").textContent=fmt.format(c.saved);
@@ -886,24 +1035,34 @@ function render(){
   const diff=c.spent-c.budget*day/dim;
   $("paceNote").textContent=`Day ${day} of ${dim} · ${diff>0?fmt0.format(diff)+" ahead of":fmt0.format(-diff)+" under"} pace`;}
  else{b.hidden=true;$("paceNote").textContent=S.month<t.slice(0,7)?"Month closed":"Upcoming month"}
- $("meterL").textContent=`${fmt.format(c.spent)} spent`;$("meterR").textContent=`of ${fmt0.format(c.budget)} budget${inc?` · ${fmt0.format(inc-c.budget)} unbudgeted income`:""}`;
+ $("meterL").textContent=`${fmt.format(c.spent)} spent`;$("meterR").textContent=`of ${fmt0.format(c.budget)} budget${inc?` · ${fmt0.format(inc-c.budget)} income not budgeted`:""}`;
+ // money in and out
+ const roomRent=sum(monthInc().filter(e=>isRoommate(e.source)),e=>e.amount);
+ const left=inc-c.spent-c.saved;
+ $("flowNote").textContent=I.estimated?"Using expected income until pay is logged":(I.actual?"":"Log pay on the Income tab");
+ $("flowList").innerHTML=[["Income"+(I.estimated?" (expected)":""),inc,""],["Spent",c.spent?-c.spent:0,""],["Saved & set aside",c.saved?-c.saved:0,""]]
+  .map(([l,v])=>`<div class="row"><div class="main"><span class="t">${esc(l)}</span></div><span></span><span class="num">${fmt.format(v)}</span></div>`).join("")+
+  `<div class="row"><div class="main"><span class="t">Left over</span></div><span></span><span class="num" style="font-weight:700;color:${left<0?"var(--bad)":"var(--good)"}">${fmt.format(left)}</span></div>`;
  $("catList").innerHTML=CATS.map(([k,l])=>{const s=c.by[k]||0,bu=Number(S.settings.budgets[k])||0;if(!s&&!bu)return"";
   const r=bu?s/bu:(s?2:0);const cls=r>1?"over":r>=.85?"warn":"";
   const chip=r>1?`<span class="chip over">Over ${fmt0.format(s-bu)}</span>`:r>=.85?`<span class="chip warn">${Math.round(r*100)}%</span>`:"";
-  return `<div class="cat ${cls}"><span>${esc(l)}${chip}</span><span class="num small">${fmt0.format(s)} / ${fmt0.format(bu)}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,r*100))}%"></i></div></div>`}).join("");
+  const net=k==="rent"&&roomRent?`<span class="small muted"> · your share after roommate ${fmt0.format(s-roomRent)}</span>`:"";
+  return `<div class="cat ${cls}"><span>${esc(l)}${chip}${net}</span><span class="num small">${fmt0.format(s)} / ${fmt0.format(bu)}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,r*100))}%"></i></div></div>`}).join("");
  renderCards(c);
  // bills due
  const due=S.bills.filter(bl=>billDueIn(bl,S.month)).sort((a,b)=>(a.due||1)-(b.due||1));
- $("billsDue").innerHTML=due.length?due.map(bl=>{const logged=monthExp().some(e=>e.billId===bl.id);
-  return `<div class="row"><div class="main"><span class="t">${esc(bl.name)}</span><span class="meta">Due ${monthLabel(S.month).slice(0,3)} ${bl.due||1}</span></div><span class="num">${fmt0.format(bl.amount)}</span>${logged?'<span class="chip good">Logged</span>':`<button class="btn ghost sm" data-log="${esc(bl.id)}">Log</button>`}</div>`}).join(""):'<p class="empty">No bills due this month.</p>';
+ const ccDue=cardBillStates().filter(b=>b.due.slice(0,7)===S.month);
+ const ccHtml=ccDue.map(b=>`<div class="row"><div class="main"><span class="t">${esc(b.card.name)} bill</span><span class="meta">Due ${b.dueLabel}</span></div><span class="num">${fmt0.format(b.left>0?b.left:b.amount)}</span>${b.left<=0.005?'<span class="chip good">Paid</span>':`<span class="chip ${b.daysToDue<0?"over":b.daysToDue<=5?"warn":"est"}">${b.daysToDue<0?"Overdue":b.daysToDue===0?"Due today":"In "+b.daysToDue+"d"}</span>`}</div>`).join("");
+ $("billsDue").innerHTML=ccHtml+(due.length?due.map(bl=>{const logged=monthExp().some(e=>e.billId===bl.id);
+  return `<div class="row"><div class="main"><span class="t">${esc(bl.name)}</span><span class="meta">Due ${monthLabel(S.month).slice(0,3)} ${bl.due||1}</span></div><span class="num">${fmt0.format(bl.amount)}</span>${logged?'<span class="chip good">Logged</span>':`<button class="btn ghost sm" data-log="${esc(bl.id)}">Log</button>`}</div>`}).join(""):(ccHtml?"":'<p class="empty">No bills due this month.</p>'));
  // funds
  const fs=S.settings.funds||[];
  $("fundsDue").innerHTML=fs.length?fs.map(f=>{const st=fundStats(f);const put=sum(S.contribs.filter(x=>x.account===fundKey(f)&&x.month===S.month),x=>x.amount);
   return `<div class="row"><div class="main"><span class="t">${esc(f.name)}</span><span class="meta">${put>=st.monthly-0.5?'<span class="chip good">Done</span>':`${fmt0.format(put)} so far`}</span></div><span class="num">${fmt0.format(st.monthly)}</span><span></span></div>`}).join("")+
   `<p class="small muted" style="padding-top:8px">Total ${fmt0.format(sum(fs,f=>fundStats(f).monthly))} a month</p>`:'<p class="empty">No sinking funds yet. Add them under Savings.</p>';
  const n=S.review.length;$("revBadge").hidden=!n;$("revBadge").textContent=n;
- renderExpenses();renderImport();renderBills();renderSavings();renderYear();
- if(S.tab==="settings"&&!document.querySelector('[data-panel="settings"]').contains(document.activeElement))renderSettings();
+ renderExpenses();renderIncome();renderImport();renderRoommate();renderSummary();renderCardBills();renderTax();renderEstimate();renderBills();renderSavings();renderYear();
+ if(S.tab==="settings"&&!S.inSettingsEdit&&!document.querySelector('[data-panel="settings"]').contains(document.activeElement))renderSettings();
 }
 
 function renderCards(c){
@@ -926,17 +1085,33 @@ async function loadProfiles(){return;const ids=[...new Set([...S.yearExp,...S.co
  try{const ps=await S.user.profiles(ids);let ch=false;for(const id of ids)if(S.profiles[id]!==ps[id]){S.profiles[id]=ps[id];ch=true}if(ch)renderExpenses()}catch{}}
 
 function renderExpenses(){
+ const F=findState();$("findClear").hidden=!F.active;
+ if(F.active){renderFind(F);return}
+ $("exHead").textContent="This month";$("findTotal").textContent="";
  const ex=[...monthExp()].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.ts||0)-(a.ts||0));
  $("clearEx").hidden=!S.yearExp.some(e=>e.example);
  if(!ex.length){$("exList").innerHTML=`<p class="empty">Nothing logged for ${monthLabel(S.month)} yet. Add an expense above or import a statement.</p>`;return}
  let html="",last="";
  for(const e of ex){if(e.date!==last){last=e.date;const d=new Date(e.date+"T12:00");html+=`<div class="day">${d.toLocaleDateString("en-CA",{weekday:"short",month:"short",day:"numeric"})}</div>`}
   const got=(Number(e.amount)||0)*rate(e.card,e.cat)/100;const w=who(e);
-  html+=`<div class="row"><div class="main"><span class="t">${esc(e.note||CATL[e.cat]||"Expense")}${e.example?' <span class="chip est">Example</span>':""}</span>
+  html+=`<div class="row"><div class="main tap" data-edit="expenses/${esc(e.id)}"><span class="t">${esc(e.note||CATL[e.cat]||"Expense")}${e.example?' <span class="chip est">Example</span>':""}</span>
    <span class="meta">${esc(CATL[e.cat]||e.cat)} · <span class="chip card">${esc(card(e.card)?.name||"Card")}</span>${w?" · "+w:""}${e.source?' · imported':""}</span></div>
    <span class="amt"><span class="num">${fmt.format(e.amount)}</span>${Math.abs(got)>=0.01?`<span class="small num" style="color:var(--good)">${got>0?"+":""}${fmt.format(got)}</span>`:""}</span>
    <button class="x" data-del="expenses/${esc(e.id)}" aria-label="Delete">×</button></div>`}
  $("exList").innerHTML=html;loadProfiles()}
+
+function renderIncome(){
+ const list=[...monthInc()].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.ts||0)-(a.ts||0));
+ const total=sum(list,e=>e.amount);
+ $("inTotal").textContent=list.length?`${fmt.format(total)} this month`:"";
+ const by={};list.forEach(e=>{by[e.source]=(by[e.source]||0)+e.amount});
+ const yr=S.month.slice(0,4);
+ $("inBySource").innerHTML=Object.keys(by).length?Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
+  const ytd=sum(S.yearInc.filter(e=>e.source===k),e=>e.amount);
+  return `<div class="cat"><span>${esc(k)} <span class="small muted">· ${yr} so far ${fmt0.format(ytd)}</span></span><span class="num small">${fmt.format(v)}</span><div class="bar"><i style="width:${total?v/total*100:0}%;background:var(--good)"></i></div></div>`}).join(""):"";
+ $("inList").innerHTML=list.length?list.map(e=>`<div class="row"><div class="main tap" data-edit="income/${esc(e.id)}"><span class="t">${esc(e.source)}</span><span class="meta">${esc(e.date)}${e.gross?" · gross "+fmt0.format(e.gross):""}${e.who?" · "+esc(e.who):""}${e.note?" · "+esc(e.note):""}${e.importId?" · imported":""}</span></div><span class="num" style="color:var(--good)">+${fmt.format(e.amount)}</span><button class="x" data-del="income/${esc(e.id)}" aria-label="Delete">×</button></div>`).join("")
+  :`<p class="empty">No income logged for ${monthLabel(S.month)} yet. Add each paycheque and your roommate's rent above, or import a bank statement and mark the deposits.</p>`;
+}
 
 function renderBills(){
  const bl=[...S.bills].sort((a,b)=>(a.due||1)-(b.due||1));
@@ -967,10 +1142,11 @@ function renderYear(){
  const tot=mk.map(m=>sum(S.yearExp.filter(e=>e.month===m),e=>e.amount));
  const budget=sum(Object.values(S.settings.budgets),v=>v);
  const total=sum(tot,v=>v),tracked=tot.filter(v=>v>0).length;
- $("yearTot").textContent=`${fmt0.format(total)} spent${tracked?` · avg ${fmt0.format(total/tracked)}/mo`:""}`;
+ const incs=mk.map(m=>sum(S.yearInc.filter(e=>e.month===m),e=>e.amount)),incTotal=sum(incs,v=>v);
+ $("yearTot").textContent=`${fmt0.format(total)} spent${incTotal?` · ${fmt0.format(incTotal)} earned`:""}${tracked?` · avg ${fmt0.format(total/tracked)}/mo`:""}`;
  // chart
  const W=640,H=220,L=48,R=8,T=10,B=26,cw=(W-L-R)/12;
- const maxV=Math.max(budget,...tot,1);const nice=v=>{const p=Math.pow(10,Math.floor(Math.log10(v)));return Math.ceil(v/p)*p};
+ const maxV=Math.max(budget,...tot,...incs,1);const nice=v=>{const p=Math.pow(10,Math.floor(Math.log10(v)));return Math.ceil(v/p)*p};
  const top=nice(maxV*1.05),yS=v=>T+(H-T-B)*(1-v/top);
  const ticks=[0,top/2,top];
  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly spending ${y}">`;
@@ -979,6 +1155,9 @@ function renderYear(){
   svg+=`<rect x="${x}" y="${yS(v)}" width="${w}" height="${h}" rx="3" fill="${v>budget&&budget?"var(--bad)":"var(--accent)"}"/>`;
   svg+=`<text x="${L+i*cw+cw/2}" y="${H-8}" text-anchor="middle">${MONTHS[i].slice(0,1)}</text>`});
  if(budget)svg+=`<line x1="${L}" x2="${W-R}" y1="${yS(budget)}" y2="${yS(budget)}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+ const ip=incs.map((v,i)=>v?[L+i*cw+cw/2,yS(v)]:null).filter(Boolean);
+ if(ip.length>1)svg+=`<polyline points="${ip.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--good)" stroke-width="2"/>`;
+ ip.forEach(p=>{svg+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--good)"/>`});
  $("yearChart").innerHTML=svg+"</svg>";
  // table
  let h=`<tr><th>Category</th>${mk.map((m,i)=>`<th class="n">${MONTHS[i].slice(0,3)}</th>`).join("")}<th class="n">Total</th><th class="n">Budget/yr</th></tr>`;
@@ -987,6 +1166,9 @@ function renderYear(){
  const sav=mk.map(m=>sum(S.contribs.filter(c=>c.month===m),c=>c.amount));
  h+=`<tr class="tot"><td>Total spent</td>${tot.map(v=>`<td class="n">${v?fmt0.format(v):"–"}</td>`).join("")}<td class="n">${fmt0.format(total)}</td><td class="n">${fmt0.format(budget*12)}</td></tr>`;
  h+=`<tr><td>Saved</td>${sav.map(v=>`<td class="n">${v?fmt0.format(v):"–"}</td>`).join("")}<td class="n">${fmt0.format(sum(sav,v=>v))}</td><td></td></tr>`;
+ h+=`<tr><td>Income</td>${incs.map(v=>`<td class="n">${v?fmt0.format(v):"–"}</td>`).join("")}<td class="n">${fmt0.format(incTotal)}</td><td></td></tr>`;
+ const lefts=mk.map((m,i)=>incs[i]?incs[i]-tot[i]-sav[i]:null);
+ h+=`<tr class="tot"><td>Left over</td>${lefts.map(v=>`<td class="n" style="color:${v==null?"":v<0?"var(--bad)":"var(--good)"}">${v==null?"–":fmt0.format(v)}</td>`).join("")}<td class="n">${incTotal?fmt0.format(incTotal-total-sum(sav,v=>v)):"–"}</td><td></td></tr>`;
  $("yearTbl").innerHTML=h;
  $("rrspNote").textContent=`RRSP contributions made by March 1, ${Number(y)+1} (60 days after year end) count toward ${y}. Confirm the exact date on canada.ca.`;
 }
@@ -1000,10 +1182,13 @@ async function pool(items,n,fn){let i=0;const run=async()=>{while(i<items.length
 const readText=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({name:f.name,text:r.result});r.onerror=()=>rej(new Error("Couldn't read "+f.name));r.readAsText(f)});
 
 async function existingImportIds(months){
- const ids=new Set([...S.review.map(r=>r.importId),...S.ignored]);
+ S.manual={expenses:[],income:[]};
+ const ids=new Set([...S.review.map(r=>r.importId),...S.ignored,...S.payments.map(p=>p.importId).filter(Boolean)]);
  const ms=[...new Set(months)];
  for(let i=0;i<ms.length;i+=30){const snap=await S.db.collection("expenses").where("month","in",ms.slice(i,i+30)).get();
-  snap.docs.forEach(d=>{const v=d.data().importId;if(v)ids.add(v)})}
+  snap.docs.forEach(d=>{const x=d.data();if(x.importId)ids.add(x.importId);else if(!x.splitOf)S.manual.expenses.push({id:d.id,...x})});
+  const snap2=await S.db.collection("income").where("month","in",ms.slice(i,i+30)).get();
+  snap2.docs.forEach(d=>{const x=d.data();if(x.importId)ids.add(x.importId);else S.manual.income.push({id:d.id,...x})})}
  const set={};ids.forEach(v=>{if(v)set[v]=1});return set}
 
 $("imGo").addEventListener("click",async()=>{
@@ -1023,14 +1208,22 @@ $("imGo").addEventListener("click",async()=>{
   const existing=await existingImportIds(rows.map(r=>r.date.slice(0,7)));
   const rules=S.rules.map(r=>({kw:normDesc(r.kw),cat:r.cat}));
   // classify per file so repeated identical rows inside one file stay distinct
-  const res={expenses:[],review:[],skipped:0,dupes:0};
-  list.forEach(f=>{const r=classifyRows(rows.filter(x=>x._f===f.name),acct,rules,CATK,existing);
-   res.expenses.push(...r.expenses);res.review.push(...r.review);res.skipped+=r.skipped;res.dupes+=r.dupes});
+  const res={expenses:[],review:[],income:[],payments:[],skipped:0,dupes:0};
+  list.forEach(f=>{const r=classifyRows(rows.filter(x=>x._f===f.name),acct,rules,CATK,existing,{reviewIncome:/bank/i.test(acct.type)});
+   res.expenses.push(...r.expenses);res.review.push(...r.review);res.income.push(...(r.income||[]));res.payments.push(...(r.payments||[]));res.skipped+=r.skipped;res.dupes+=r.dupes});
   const uid=await myId();const ts=Date.now();
+  // entries you already typed by hand: link instead of adding a duplicate
+  let matched=0;const used=new Set();
+  const link=async(list,col,items,amtOf)=>{const keep=[];for(const it of items){const m=list.find(x=>!used.has(x.id)&&Math.abs((Number(x.amount)||0)-amtOf(it))<0.006&&Math.abs(dayDiff(x.date,it.date))<=4);
+   if(m){used.add(m.id);matched++;await S.db.doc(col+"/"+m.id).update({importId:it.id,...(col==="expenses"&&!m.source?{source:acct.name}:{}),...(col==="income"?{account:acct.name}:{})})}else keep.push(it)}return keep};
+  res.expenses=await link(S.manual.expenses,"expenses",res.expenses,e=>e.amount);
+  res.income=await link(S.manual.income,"income",res.income,e=>e.amount);
+  await pool(res.payments||[],4,e=>S.db.doc("payments/"+hashId(e.id)).set({card:acct.card,amount:e.amount,date:e.date,month:e.date.slice(0,7),importId:e.id,ts}));
   await pool(res.expenses,4,e=>S.db.doc("expenses/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),cat:e.category,card:acct.card,who:acct.who||"Joint",note:e.note,source:acct.name,importId:e.id,by:uid,ts}));
-  await pool(res.review,4,e=>S.db.doc("review/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),desc:e.desc,keyword:e.keyword,card:acct.card,who:acct.who||"Joint",account:acct.name,importId:e.id,ts}));
-  await S.db.collection("importlog").add({ts,account:acct.name,files:list.map(f=>f.name).join(", "),read:rows.length,added:res.expenses.length,review:res.review.length,skipped:res.skipped,dupes:res.dupes});
-  out.innerHTML=`<div class="result"><div><b>${res.expenses.length}</b><span class="small muted">added</span></div><div><b>${res.review.length}</b><span class="small muted">need a category</span></div><div><b>${res.skipped}</b><span class="small muted">skipped (payments, transfers, money in)</span></div><div><b>${res.dupes}</b><span class="small muted">already imported</span></div></div>${warnings.length?`<p class="small muted" style="margin-top:8px">${esc(warnings.join(" "))}</p>`:""}`;
+  await pool(res.review,4,e=>S.db.doc("review/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),desc:e.desc,keyword:e.keyword,card:acct.card,who:acct.who||"Joint",account:acct.name,importId:e.id,kind:e.kind||"out",ts}));
+  await pool(res.income,4,e=>S.db.doc("income/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),source:e.source,who:acct.who||"Joint",note:e.note,account:acct.name,importId:e.id,ts}));
+  await S.db.collection("importlog").add({ts,account:acct.name,files:list.map(f=>f.name).join(", "),read:rows.length,added:res.expenses.length+res.income.length,income:res.income.length,review:res.review.length,skipped:res.skipped,dupes:res.dupes});
+  out.innerHTML=`<div class="result"><div><b>${res.expenses.length+res.income.length}</b><span class="small muted">added${res.income.length?` (${res.income.length} income)`:""}</span></div><div><b>${res.review.length}</b><span class="small muted">to check below</span></div><div><b>${res.skipped}</b><span class="small muted">skipped (card payments, transfers)</span></div><div><b>${res.dupes+matched}</b><span class="small muted">already in the app${matched?` (${matched} you'd typed)`:""}</span></div></div>${res.payments.length?`<p class="small muted" style="margin-top:8px">${res.payments.length} card payment${res.payments.length>1?"s":""} recorded under Bills → Credit card bills.</p>`:""}${warnings.length?`<p class="small muted" style="margin-top:8px">${esc(warnings.join(" "))}</p>`:""}`;
   $("imFile").value="";if(!files.length&&pend)clearPending();
   const first=rows.map(r=>r.date).sort()[0];if(first&&first.slice(0,7)!==S.month&&res.expenses.length)setMonth(rows.map(r=>r.date).sort().slice(-1)[0].slice(0,7));
  }catch(err){out.innerHTML=`<p class="notice bad">${esc(writeErr(err))}</p>`}
@@ -1045,12 +1238,13 @@ function showPending(){const p=pendingCsv(),el=$("pendNote");if(!el)return;el.hi
 function renderImport(){
  const items=[...S.review].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
  $("rvAll").hidden=!items.some(r=>S.drafts[r.id]?.cat);
- if(!items.length){$("rvList").innerHTML='<p class="empty">Nothing waiting. Imported purchases the rules don\'t recognize show up here.</p>'}
+ if(!items.length){$("rvList").innerHTML='<p class="empty">Nothing waiting. Purchases the rules don\'t recognize, and money coming into a bank account, show up here.</p>'}
  else if(!$("rvList").contains(document.activeElement)){
-  const opts=[["","Pick a category"],...CATS,["skip","Skip (not spending)"]];
-  $("rvList").innerHTML=items.map(r=>{const d=S.drafts[r.id]||{};const kw=d.kw??r.keyword??"";const rem=d.remember??true;if(!d.cat&&r.aiCat&&aiEnabled()){d.cat=r.aiCat;S.drafts[r.id]=d}
+  const optsOut=[["","Pick a category"],...CATS,["skip","Skip (not spending)"]];
+  const optsIn=[["","Money in: pay, rent or skip?"],...incomeSources().map(x=>["inc:"+x,"Income: "+x]),["skip","Skip (transfer, not income)"]];
+  $("rvList").innerHTML=items.map(r=>{const opts=r.kind==="in"?optsIn:optsOut;const d=S.drafts[r.id]||{};const kw=d.kw??r.keyword??"";const rem=d.remember??true;if(!d.cat&&r.aiCat&&aiEnabled()){d.cat=r.aiCat;S.drafts[r.id]=d}
    return `<div class="rv" data-rv="${esc(r.id)}"><div><div class="desc">${esc(r.desc)}</div><div class="small muted">${esc(r.date)} · ${esc(r.account)}${r.aiCat&&aiEnabled()&&d.cat===r.aiCat?' · <span class="chip ai">AI suggestion</span>':""}</div></div>
-   <div class="num">${fmt.format(r.amount)}</div>
+   <div class="num"${r.kind==="in"?' style="color:var(--good)"':""}>${r.kind==="in"?"+"+fmt.format(Math.abs(r.amount)):fmt.format(r.amount)}</div>
    <div class="ctrls"><select data-rvcat aria-label="Category">${opts.map(([k,l])=>`<option value="${k}"${(d.cat||"")===k?" selected":""}>${esc(l)}</option>`).join("")}</select>
    <select data-rvwho aria-label="Who">${people().map(p=>`<option${(d.who||r.who)===p?" selected":""}>${esc(p)}</option>`).join("")}</select>
    <button class="btn sm" data-rvsave>Save</button></div>
@@ -1074,6 +1268,7 @@ async function saveReviewed(ids){
   for(const id of ids){const r=S.review.find(x=>x.id===id);const d=S.drafts[id];if(!r||!d?.cat)continue;
    const kw=(d.kw??r.keyword??"").trim();const remember=d.remember??true;
    if(d.cat==="skip")ignore.push(r.importId);
+   else if(d.cat.startsWith("inc:"))await S.db.doc("income/"+id).set({amount:Math.abs(r.amount),date:r.date,month:r.month||r.date.slice(0,7),source:d.cat.slice(4),who:d.who||r.who||"Joint",note:cleanMerchant(r.desc),account:r.account,importId:r.importId,ts:Date.now()});
    else await S.db.doc("expenses/"+id).set({amount:r.amount,date:r.date,month:r.month||r.date.slice(0,7),cat:d.cat,card:r.card,who:d.who||r.who||"Joint",note:cleanMerchant(r.desc),source:r.account,importId:r.importId,by:uid,ts:Date.now()});
    if(remember&&kw)learned.push({kw:kw.toUpperCase(),cat:d.cat});
    await S.db.doc("review/"+id).delete();delete S.drafts[id];}
@@ -1104,28 +1299,44 @@ function renderSettings(){
  $("tgtTbl").innerHTML=`<tr><th>Account</th><th>Target ($)</th></tr>`+ACCTS.map(([k,l])=>`<tr><td>${esc(l)}</td><td><input id="tgt-${k}" data-tgt="${k}" type="number" min="0" step="25" value="${Number(st.targets[k])||0}"></td></tr>`).join("");
  const cs=st.cards;
  $("cardTbl").innerHTML=`<tr><th>Category</th>${cs.map(c=>`<th>${esc(c.name)}</th>`).join("")}</tr>`+
+  `<tr><td><b>Statement closes (day)</b></td>${cs.map(c=>c.id==="debit"?"<td></td>":`<td><input id="cd-${c.id}" data-cday="${esc(c.id)}" data-k="closeDay" type="number" min="1" max="31" step="1" value="${c.closeDay||""}" placeholder="–"></td>`).join("")}</tr>`+
+  `<tr><td><b>Payment due (day)</b></td>${cs.map(c=>c.id==="debit"?"<td></td>":`<td><input id="dd-${c.id}" data-cday="${esc(c.id)}" data-k="dueDay" type="number" min="1" max="31" step="1" value="${c.dueDay||""}" placeholder="–"></td>`).join("")}</tr>`+
   `<tr><td><b>Annual fee ($)</b></td>${cs.map(c=>`<td><input id="fee-${c.id}" data-fee="${esc(c.id)}" type="number" min="0" step="1" value="${Number(st.fees?.[c.id])||0}"></td>`).join("")}</tr>`+
   `<tr><td class="muted">Everything else</td>${cs.map(c=>`<td><input id="rate-${c.id}-base" data-card="${esc(c.id)}" data-rcat="" type="number" min="0" step="0.5" value="${c.base}"></td>`).join("")}</tr>`+
   CATS.map(([k,l])=>{const b=bestCard(k);return `<tr><td>${esc(l)}</td>${cs.map(c=>{const r=rate(c.id,k);return `<td class="${b.card?.id===c.id&&r>0?"best":""}"><input id="rate-${c.id}-${k}" data-card="${esc(c.id)}" data-rcat="${k}" type="number" min="0" step="0.5" value="${r}"></td>`}).join("")}</tr>`}).join("");
  renderRules();
+ const jobs=st.jobs||[];
+ const freqs=[["weekly","Weekly"],["biweekly","Every 2 weeks"],["semimonthly","Twice a month"],["monthly","Monthly"]];
+ $("jobTbl").innerHTML=`<tr><th>Job</th><th>Person</th><th>Hourly rate ($)</th><th>Paid</th><th>Other deductions per pay ($)</th><th></th></tr>`+
+  (jobs.length?jobs.map((j,i)=>`<tr><td><input class="txt" id="job-n-${i}" data-job="${i}" data-k="name" value="${esc(j.name)}" maxlength="40"></td>
+   <td>${sel(`id="job-p-${i}" data-job="${i}" data-k="person"`,people().slice(0,2).map(p=>[p,p]),j.person)}</td>
+   <td><input id="job-r-${i}" data-job="${i}" data-k="rate" type="number" min="0" step="0.01" value="${Number(j.rate)||0}"></td>
+   <td>${sel(`id="job-f-${i}" data-job="${i}" data-k="freq"`,freqs,j.freq||"biweekly")}</td>
+   <td><input id="job-o-${i}" data-job="${i}" data-k="other" type="number" min="0" step="0.01" value="${Number(j.other)||0}"></td>
+   <td><button class="x" data-deljob="${i}" aria-label="Remove job">×</button></td></tr>`).join(""):`<tr><td colspan="6" class="muted">No jobs yet.</td></tr>`);
+ const rm=st.roommate||{};$("rmName").value=rm.name||"";$("rmAmt").value=rm.amount||"";$("rmDue").value=rm.due||1;
+ $("srcList").innerHTML=incomeSources().map((x,i)=>`<div class="row"><div class="main"><span class="t">${esc(x)}</span></div><span></span><button class="x" data-delsrc="${i}" aria-label="Remove source">×</button></div>`).join("");
 }
+function ruleLabel(c){return String(c).startsWith("inc:")?"Income: "+String(c).slice(4):(CATL[c]||c)}
 function renderRules(){
  const q=normDesc($("ruleSearch").value);
- const list=S.rules.map((r,i)=>({...r,i})).filter(r=>!q||normDesc(r.kw).includes(q)||normDesc(CATL[r.cat]||r.cat).includes(q));
+ const list=S.rules.map((r,i)=>({...r,i})).filter(r=>!q||normDesc(r.kw).includes(q)||normDesc(ruleLabel(r.cat)).includes(q));
  $("ruleCount").textContent=`${S.rules.length} rules`;
- $("ruleList").innerHTML=list.slice(0,40).map(r=>`<div class="row"><div class="main"><span class="t num" style="font-size:.85rem">${esc(r.kw)}</span></div><span class="small">${r.cat==="skip"?'<span class="chip est">Skip</span>':esc(CATL[r.cat]||r.cat)}</span><button class="x" data-delrule="${r.i}" aria-label="Delete rule">×</button></div>`).join("")+
+ $("ruleList").innerHTML=list.slice(0,40).map(r=>`<div class="row"><div class="main"><span class="t num" style="font-size:.85rem">${esc(r.kw)}</span></div><span class="small">${r.cat==="skip"?'<span class="chip est">Skip</span>':esc(ruleLabel(r.cat))}</span><button class="x" data-delrule="${r.i}" aria-label="Delete rule">×</button></div>`).join("")+
   (list.length>40?`<p class="small muted" style="padding-top:8px">Showing 40 of ${list.length}. Search to narrow down.</p>`:"")+(S.rules.length?"":'<p class="empty">No rules yet.</p>');
 }
 $("ruleSearch").addEventListener("input",renderRules);
+$("srcAdd").addEventListener("click",()=>{const v=$("srcNew").value.trim();if(!v)return;const list=[...incomeSources()];if(!list.includes(v))list.push(v);
+ S.settings.incomeSources=list;$("srcNew").value="";saveSettings();fillDynamic();renderSettings()});
 $("ruleAdd").addEventListener("click",async()=>{const kw=$("ruleKw").value.trim().toUpperCase();if(!kw||!need())return;
  const rules=[{kw,cat:$("ruleCat").value},...S.rules.filter(r=>normDesc(r.kw)!==normDesc(kw))];
  try{await S.db.doc("settings/rules").set({rules});$("ruleKw").value=""}catch(err){showBanner(writeErr(err))}});
 
 let chain=Promise.resolve(),saveTimer=null;
 function saveSettings(){
- clearTimeout(saveTimer);$("saveStatus").textContent="Saving…";
- saveTimer=setTimeout(()=>{const body=structuredClone(S.settings);
-  chain=chain.then(()=>S.db.doc("settings/main").set(body)).then(()=>{$("saveStatus").textContent="Saved"},e=>{$("saveStatus").textContent=writeErr(e)})},400)}
+ clearTimeout(saveTimer);S.pendingSave=true;$("saveStatus").textContent="Saving…";
+ saveTimer=setTimeout(()=>{saveTimer=null;const body=structuredClone(S.settings);
+  chain=chain.then(()=>S.db.doc("settings/main").set(body)).then(()=>{if(!saveTimer)S.pendingSave=false;$("saveStatus").textContent="Saved"},e=>{if(!saveTimer)S.pendingSave=false;$("saveStatus").textContent=writeErr(e)})},400)}
 function writeErr(e){return e?.name==="QuotaExceededError"?"This phone's storage for the app is full. Delete old entries or free up space.":(e?.message||"Something went wrong. Try again.")}
 
 const setPanel=document.querySelector('[data-panel="settings"]');
@@ -1136,9 +1347,13 @@ setPanel.addEventListener("change",e=>{const t=e.target,st=S.settings;const v=Ma
  else if(t.dataset.bud)st.budgets[t.dataset.bud]=v;
  else if(t.dataset.tgt)st.targets[t.dataset.tgt]=v;
  else if(t.dataset.fee){st.fees=st.fees||{};st.fees[t.dataset.fee]=v}
+ else if(t.dataset.cday){const c=card(t.dataset.cday);if(!c)return;c[t.dataset.k]=t.value?Math.min(31,Math.max(1,Math.round(v))):null}
+ else if(t.dataset.job!=null){const j=(st.jobs||[])[+t.dataset.job];if(!j)return;j[t.dataset.k]=["rate","other"].includes(t.dataset.k)?v:t.value}
+ else if(t.dataset.rm){st.roommate=st.roommate||{};st.roommate[t.dataset.rm]=t.dataset.rm==="name"?t.value.trim():v}
  else if(t.dataset.acct!=null){const a=st.accounts[+t.dataset.acct];if(!a)return;a[t.dataset.k]=t.dataset.k==="name"?(t.value.trim()||a.name):t.value}
  else if(t.dataset.card){const c=card(t.dataset.card);if(!c)return;if(t.dataset.rcat==="")c.base=v;else{c.rates=c.rates||{};c.rates[t.dataset.rcat]=v}}
- else return;saveSettings();fillDynamic();render();suggestCard()});
+ else return;saveSettings();S.inSettingsEdit=true;try{fillDynamic();render();suggestCard()}finally{S.inSettingsEdit=false}
+ $("budTotal").textContent=`${fmt0.format(sum(Object.values(st.budgets),v=>v))}/mo`});
 $("addAcct").addEventListener("click",()=>{const st=S.settings;let n=st.accounts.length+1,name="New account";while(st.accounts.some(a=>a.name===name))name="New account "+(++n);
  st.accounts.push({name,card:"debit",who:"Joint",type:"Bank account",sign:"auto",dateOrder:"auto"});saveSettings();fillDynamic();renderSettings();
  setTimeout(()=>{const el=$("ac-n-"+(st.accounts.length-1));el?.focus();el?.select()},0)});
@@ -1161,8 +1376,19 @@ async function myId(){return null}
 
 $("exForm").addEventListener("submit",async e=>{e.preventDefault();if(!need())return;
  const amount=Math.round(Number($("exAmt").value)*100)/100;if(!amount)return;const date=$("exDate").value;
+ const dup=findDup(S.yearExp,amount,date,2);
+ if(dup&&$("exSubmit").dataset.confirm!==dup.id){$("exSubmit").dataset.confirm=dup.id;$("exSubmit").textContent="Add anyway";$("exHint").textContent=`Looks like a duplicate: ${dup.note||CATL[dup.cat]} ${fmt.format(dup.amount)} on ${dup.date}.`;return}
+ $("exSubmit").dataset.confirm="";$("exSubmit").textContent="Add expense";
  try{await S.db.collection("expenses").add({amount,date,month:date.slice(0,7),cat:$("exCat").value,card:$("exCard").value,who:$("exWho").value,note:$("exNote").value.trim(),by:await myId(),ts:Date.now()});
   $("exAmt").value="";$("exNote").value="";$("exAmt").focus();if(date.slice(0,7)!==S.month)setMonth(date.slice(0,7))}catch(err){showBanner(writeErr(err))}});
+$("inForm").addEventListener("submit",async e=>{e.preventDefault();if(!need())return;
+ const amount=Math.round(Number($("inAmt").value)*100)/100;if(!(amount>0))return;const date=$("inDate").value;
+ const dup=findDup(S.yearInc,amount,date,4);
+ if(dup&&$("inSubmit").dataset.confirm!==dup.id){$("inSubmit").dataset.confirm=dup.id;$("inSubmit").textContent="Add anyway";$("inHint").textContent=`Looks like a duplicate: ${dup.source} ${fmt.format(dup.amount)} on ${dup.date}${dup.importId?" (imported)":""}.`;return}
+ $("inSubmit").dataset.confirm="";$("inSubmit").textContent="Add income";$("inHint").textContent="Added.";
+ const gross=Number($("inGross").value)||0,tax=Number($("inTax").value)||0;
+ try{await S.db.collection("income").add({amount,date,month:date.slice(0,7),source:$("inSrc").value,who:$("inWho").value,note:$("inNote").value.trim(),...(gross?{gross}:{}),...(tax?{tax}:{}),by:await myId(),ts:Date.now()});
+  $("inAmt").value="";$("inNote").value="";$("inGross").value="";$("inTax").value="";if(date.slice(0,7)!==S.month)setMonth(date.slice(0,7))}catch(err){showBanner(writeErr(err))}});
 $("billForm").addEventListener("submit",async e=>{e.preventDefault();if(!need())return;
  try{await S.db.collection("bills").add({name:$("bName").value.trim(),amount:Number($("bAmt").value)||0,freq:$("bFreq").value,start:Number($("bStart").value),due:Math.min(31,Math.max(1,Number($("bDue").value)||1)),cat:$("bCat").value,card:$("bCard").value});
   $("bName").value="";$("bAmt").value=""}catch(err){showBanner(writeErr(err))}});
@@ -1174,12 +1400,14 @@ $("fundForm").addEventListener("submit",e=>{e.preventDefault();if(!need())return
 
 let armed=null;
 document.addEventListener("click",async e=>{
- const d=e.target.closest("[data-del],[data-delfund],[data-delacct],[data-delrule]");
+ const d=e.target.closest("[data-del],[data-delfund],[data-delacct],[data-delrule],[data-delsrc],[data-deljob]");
  if(d){if(armed!==d){disarm();armed=d;d.classList.add("confirm");d.textContent="Delete?";return}
   armed=null;if(!need())return;
   try{if(d.dataset.del)await S.db.doc(d.dataset.del).delete();
    else if(d.dataset.delfund){S.settings.funds=S.settings.funds.filter(f=>f.id!==d.dataset.delfund);saveSettings();fillDynamic();render()}
    else if(d.dataset.delacct!=null){S.settings.accounts.splice(+d.dataset.delacct,1);saveSettings();fillDynamic();renderSettings()}
+   else if(d.dataset.deljob!=null){S.settings.jobs.splice(+d.dataset.deljob,1);saveSettings();fillDynamic();renderSettings();render()}
+   else if(d.dataset.delsrc!=null){const list=[...incomeSources()];list.splice(+d.dataset.delsrc,1);S.settings.incomeSources=list.length?list:null;saveSettings();fillDynamic();renderSettings()}
    else if(d.dataset.delrule!=null){const rules=S.rules.filter((_,i)=>i!==+d.dataset.delrule);await S.db.doc("settings/rules").set({rules})}
   }catch(err){showBanner(writeErr(err))}return}
  if(armed)disarm();
@@ -1195,7 +1423,248 @@ function showBanner(t){const b=$("banner");b.textContent=t;b.hidden=false;b.clas
 const docs=snap=>snap.docs.map(d=>({id:d.id,...d.data()}));
 
 function subscribeYear(){if(!S.db)return;const y=S.month.slice(0,4);if(S.year===y)return;S.year=y;S.unsubYear?.();
- S.unsubYear=S.db.collection("expenses").where("month",">=",y+"-01").where("month","<=",y+"-12").onSnapshot(s=>{S.yearExp=docs(s);render()},()=>showBanner("Expenses stopped syncing. Reload the page."))}
+ S.unsubYear=S.db.collection("expenses").where("month",">=",y+"-01").where("month","<=",y+"-12").onSnapshot(s=>{S.yearExp=docs(s);render()},()=>showBanner("Expenses stopped syncing. Reload the page."));
+ if(!S.extrasOn){S.extrasOn=true;
+  S.db.collection("payments").onSnapshot(s=>{S.payments=docs(s);render()},()=>{});
+  S.db.collection("cardstmts").onSnapshot(s=>{S.stmts={};s.docs.forEach(d=>{S.stmts[d.id]=d.data()});render()},()=>{});}
+ S.unsubInc?.();S.unsubInc=S.db.collection("income").where("month",">=",y+"-01").where("month","<=",y+"-12").onSnapshot(s=>{S.yearInc=docs(s);render()},()=>{})}
+
+
+/* ================= features: edit/split, find, duplicates, roommate, summary, card bills, tax, estimate ================= */
+const dayDiff=(a,b)=>(new Date(a+"T12:00")-new Date(b+"T12:00"))/864e5;
+function findDup(list,amount,date,days){return list.find(x=>Math.abs((Number(x.amount)||0)-amount)<0.006&&Math.abs(dayDiff(x.date,date))<=days)||null}
+const addDays=(iso,n)=>{const d=new Date(iso+"T12:00");d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const isoOf=(y,m,d)=>{const dim=new Date(y,m,0).getDate();return `${y}-${pad(m)}-${pad(Math.min(d,dim))}`};
+const niceDate=iso=>new Date(iso+"T12:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"});
+
+/* ---- edit & split ---- */
+const ED={path:null,doc:null,kind:null,splits:[]};
+document.addEventListener("click",e=>{const t=e.target.closest("[data-edit]");if(!t)return;openEditor(t.dataset.edit)});
+async function openEditor(path){
+ const snap=await S.db.doc(path).get();if(!snap.exists)return;const d=snap.data();
+ ED.path=path;ED.doc=d;ED.kind=path.split("/")[0];ED.splits=[];
+ const opt=(pairs,v)=>pairs.map(([k,l])=>`<option value="${esc(k)}"${String(k)===String(v)?" selected":""}>${esc(l)}</option>`).join("");
+ let h="";
+ if(ED.kind==="expenses"){
+  $("dlgTitle").textContent="Edit expense";
+  h=`<div class="f s2"><label for="edAmt">Amount ($)</label><input id="edAmt" type="number" inputmode="decimal" step="0.01" value="${d.amount}"></div>
+   <div class="f s2"><label for="edDate">Date</label><input id="edDate" type="date" value="${esc(d.date)}"></div>
+   <div class="f s2 m6"><label for="edCat">Category</label><select id="edCat">${opt(CATS,d.cat)}</select></div>
+   <div class="f s3"><label for="edCard">Paid with</label><select id="edCard">${opt(S.settings.cards.map(c=>[c.id,c.name]),d.card)}</select></div>
+   <div class="f s3"><label for="edWho">Who</label><select id="edWho">${opt(people().map(p=>[p,p]),d.who||"Joint")}</select></div>
+   <div class="f s6"><label for="edNote">Note</label><input id="edNote" type="text" maxlength="80" value="${esc(d.note||"")}"></div>
+   <label class="f s6 check" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="edRule"> Always file this merchant under the chosen category</label>`;
+  $("dlgSplitBtn").hidden=false;
+ }else{
+  $("dlgTitle").textContent="Edit income";
+  h=`<div class="f s2"><label for="edAmt">Amount received ($)</label><input id="edAmt" type="number" inputmode="decimal" step="0.01" value="${d.amount}"></div>
+   <div class="f s2"><label for="edDate">Date</label><input id="edDate" type="date" value="${esc(d.date)}"></div>
+   <div class="f s2 m6"><label for="edSrc">Source</label><select id="edSrc">${opt([...new Set([...incomeSources(),d.source])].map(x=>[x,x]),d.source)}</select></div>
+   <div class="f s2"><label for="edWho">Who</label><select id="edWho">${opt(people().map(p=>[p,p]),d.who||"Joint")}</select></div>
+   <div class="f s2"><label for="edGross">Gross pay ($)</label><input id="edGross" type="number" inputmode="decimal" step="0.01" value="${d.gross||""}"></div>
+   <div class="f s2"><label for="edTax">Income tax deducted ($)</label><input id="edTax" type="number" inputmode="decimal" step="0.01" value="${d.tax||""}"></div>
+   <div class="f s6"><label for="edNote">Note</label><input id="edNote" type="text" maxlength="80" value="${esc(d.note||"")}"></div>`;
+  $("dlgSplitBtn").hidden=true;
+ }
+ $("dlgFields").innerHTML=h;$("dlgSplit").hidden=true;$("splitRows").innerHTML="";$("dlgDelete").textContent="Delete";delete $("dlgDelete").dataset.armed;
+ $("editDlg").showModal();
+}
+function renderSplits(){
+ const total=Number($("edAmt").value)||0;const others=sum(ED.splits,x=>x.amount);
+ $("splitRows").innerHTML=`<div class="split-row"><span class="num">${fmt.format(total-others)}</span><span class="small muted">stays as ${esc(CATL[$("edCat").value])}</span><span></span></div>`+
+  ED.splits.map((x,i)=>`<div class="split-row"><input type="number" inputmode="decimal" step="0.01" min="0" data-sp="${i}" data-k="amount" value="${x.amount||""}" aria-label="Part amount" placeholder="0.00">
+  <select data-sp="${i}" data-k="cat" aria-label="Part category">${CATS.map(([k,l])=>`<option value="${k}"${k===x.cat?" selected":""}>${esc(l)}</option>`).join("")}</select>
+  <button class="x" type="button" data-sprm="${i}" aria-label="Remove part">×</button></div>`).join("");
+ $("splitLeft").textContent=total-others<0?"The parts add up to more than the total.":"";
+}
+$("dlgSplitBtn").addEventListener("click",()=>{ED.splits.push({amount:0,cat:ED.doc.cat==="household"?"groceries":"household"});$("dlgSplit").hidden=false;renderSplits()});
+$("splitRows").addEventListener("input",e=>{const i=e.target.dataset.sp;if(i==null)return;const x=ED.splits[+i];if(e.target.dataset.k==="amount")x.amount=Number(e.target.value)||0;else x.cat=e.target.value;
+ const total=Number($("edAmt").value)||0;const others=sum(ED.splits,y=>y.amount);$("splitRows").firstElementChild.firstElementChild.textContent=fmt.format(total-others);$("splitLeft").textContent=total-others<0?"The parts add up to more than the total.":""});
+$("splitRows").addEventListener("change",e=>{if(e.target.dataset.k==="cat"){ED.splits[+e.target.dataset.sp].cat=e.target.value}});
+$("splitRows").addEventListener("click",e=>{const i=e.target.dataset.sprm;if(i==null)return;ED.splits.splice(+i,1);if(!ED.splits.length)$("dlgSplit").hidden=true;renderSplits()});
+$("dlgClose").addEventListener("click",()=>$("editDlg").close());
+$("dlgDelete").addEventListener("click",async()=>{const b=$("dlgDelete");if(!b.dataset.armed){b.dataset.armed="1";b.textContent="Tap again to delete";return}
+ try{await S.db.doc(ED.path).delete()}catch(err){showBanner(writeErr(err))}$("editDlg").close()});
+$("editForm").addEventListener("submit",async e=>{e.preventDefault();
+ const amount=Math.round((Number($("edAmt").value)||0)*100)/100,date=$("edDate").value||ED.doc.date;
+ try{
+  if(ED.kind==="expenses"){
+   const others=ED.splits.filter(x=>x.amount>0);const rest=Math.round((amount-sum(others,x=>x.amount))*100)/100;
+   if(rest<0){$("splitLeft").textContent="The parts add up to more than the total.";return}
+   const base={date,month:date.slice(0,7),card:$("edCard").value,who:$("edWho").value,note:$("edNote").value.trim()};
+   await S.db.doc(ED.path).update({...base,amount:rest,cat:$("edCat").value});
+   for(const x of others)await S.db.collection("expenses").add({...base,amount:Math.round(x.amount*100)/100,cat:x.cat,note:(base.note||"Split")+" (split)",splitOf:ED.path.split("/")[1],source:ED.doc.source||null,ts:Date.now()});
+   if($("edRule").checked&&base.note){const kw=suggestKeyword(base.note).toUpperCase();if(kw){const rules=[{kw,cat:$("edCat").value},...S.rules.filter(r=>normDesc(r.kw)!==normDesc(kw))];await S.db.doc("settings/rules").set({rules})}}
+  }else{
+   const gross=Number($("edGross").value)||0,tax=Number($("edTax").value)||0;
+   await S.db.doc(ED.path).update({amount,date,month:date.slice(0,7),source:$("edSrc").value,who:$("edWho").value,note:$("edNote").value.trim(),gross:gross||null,tax:tax||null});
+  }
+  $("editDlg").close();if(date.slice(0,7)!==S.month&&date.slice(0,4)!==S.month.slice(0,4))setMonth(date.slice(0,7));
+ }catch(err){showBanner(writeErr(err))}
+});
+
+/* ---- find ---- */
+function findState(){const q=normDesc($("findQ").value),period=$("findPeriod").value,cat=$("findCat").value,cd=$("findCard").value,who=$("findWho").value;
+ return {q,period,cat,card:cd,who,active:!!(q||cat||cd||who||period!=="month")}}
+let findAll=null,findTimer=null;
+async function renderFind(F){
+ let pool;
+ if(F.period==="all"){if(!findAll){const snap=await S.db.collection("expenses").get();findAll=docs(snap)}pool=findAll}
+ else pool=F.period==="year"?S.yearExp:monthExp();
+ const hits=pool.filter(e=>(!F.cat||e.cat===F.cat)&&(!F.card||e.card===F.card)&&(!F.who||e.who===F.who)&&(!F.q||normDesc((e.note||"")+" "+(CATL[e.cat]||"")+" "+(e.source||"")).includes(F.q)))
+  .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+ $("exHead").textContent=`${hits.length} match${hits.length===1?"":"es"}`;$("findTotal").textContent=fmt.format(sum(hits,e=>e.amount));
+ $("exList").innerHTML=hits.length?hits.slice(0,300).map(e=>`<div class="row"><div class="main tap" data-edit="expenses/${esc(e.id)}"><span class="t">${esc(e.note||CATL[e.cat]||"Expense")}</span>
+  <span class="meta">${esc(e.date)} · ${esc(CATL[e.cat]||e.cat)} · <span class="chip card">${esc(card(e.card)?.name||"")}</span>${e.who?" · "+esc(e.who):""}</span></div><span class="num">${fmt.format(e.amount)}</span><span></span></div>`).join("")+(hits.length>300?'<p class="small muted">Showing the newest 300.</p>':"")
+  :'<p class="empty">Nothing matches.</p>';
+}
+["findQ","findPeriod","findCat","findCard","findWho"].forEach(id=>$(id).addEventListener(id==="findQ"?"input":"change",()=>{clearTimeout(findTimer);findTimer=setTimeout(()=>{findAll=null;renderExpenses()},150)}));
+$("findClear").addEventListener("click",()=>{$("findQ").value="";$("findPeriod").value="month";$("findCat").value="";$("findCard").value="";$("findWho").value="";renderExpenses()});
+
+/* ---- roommate rent check ---- */
+function roommateState(m){
+ const rm=S.settings.roommate||{};const amt=Number(rm.amount)||0;if(!amt)return null;
+ const [y,mo]=m.split("-").map(Number);const due=isoOf(y,mo,Number(rm.due)||1);
+ const got=S.yearInc.filter(e=>e.month===m&&isRoommate(e.source));const paid=sum(got,e=>e.amount);
+ return {rm,amt,due,paid,got,late:Math.floor(dayDiff(today(),due))}}
+function renderRoommate(){
+ const st=roommateState(S.month);$("roomPanel").hidden=!st;if(!st)return;
+ const who=st.rm.name||"Roommate";$("roomTitle").textContent=`${who}'s rent`;
+ let txt,btn="";
+ if(st.paid>=st.amt-0.5){txt=`Received ${fmt.format(st.paid)} on ${niceDate(st.got[st.got.length-1].date)}.`;btn='<span class="chip good">Paid</span>'}
+ else{const part=st.paid?`Received ${fmt.format(st.paid)} of ${fmt.format(st.amt)}. `:"";
+  txt=part+(st.late>0?`${fmt.format(st.amt-st.paid)} was due ${niceDate(st.due)}, ${st.late} day${st.late>1?"s":""} ago.`:st.late===0?`${fmt.format(st.amt-st.paid)} is due today.`:`${fmt.format(st.amt-st.paid)} due ${niceDate(st.due)}.`);
+  btn=`${st.late>0?'<span class="chip over">Late</span> ':""}<button class="btn sm" type="button" id="roomPaid">Mark ${fmt0.format(st.amt-st.paid)} received</button>`}
+ $("roomText").textContent=txt;$("roomBtns").innerHTML=btn;
+ const b=$("roomPaid");if(b)b.onclick=async()=>{b.disabled=true;const src=incomeSources().find(isRoommate)||"Roommate rent";
+  const date=today().startsWith(S.month)?today():st.due;
+  try{await S.db.collection("income").add({amount:Math.round((st.amt-st.paid)*100)/100,date,month:date.slice(0,7),source:src,who:people()[0],note:`${who}'s rent`,ts:Date.now()})}catch(err){showBanner(writeErr(err))}}
+}
+
+/* ---- credit card bills ---- */
+function cardBillStates(){
+ const t=today(),[ty,tm,td]=t.split("-").map(Number);const out=[];
+ S.settings.cards.filter(c=>c.id!=="debit"&&c.closeDay).forEach(c=>{
+  let close=isoOf(ty,tm,c.closeDay);if(close>t){const pm=tm===1?[ty-1,12]:[ty,tm-1];close=isoOf(pm[0],pm[1],c.closeDay)}
+  const [cy,cm]=close.split("-").map(Number);const pm=cm===1?[cy-1,12]:[cy,cm-1];const prevClose=isoOf(pm[0],pm[1],c.closeDay);
+  const dd=c.dueDay||c.closeDay;let due=isoOf(cy,cm,dd);if(due<=close){const nm=cm===12?[cy+1,1]:[cy,cm+1];due=isoOf(nm[0],nm[1],dd)}
+  const inCycle=(e,a,b)=>e.date>a&&e.date<=b;
+  const all=S.yearExp;const charged=sum(all.filter(e=>e.card===c.id&&inCycle(e,prevClose,close)),e=>e.amount);
+  const key=c.id+"_"+close;const manual=S.stmts[key]?.amount;const amount=manual!=null?manual:Math.max(0,charged);
+  const paid=sum(S.payments.filter(p=>p.card===c.id&&p.date>close),p=>p.amount);
+  const current=sum(all.filter(e=>e.card===c.id&&inCycle(e,close,t)),e=>e.amount);
+  out.push({card:c,close,prevClose,due,dueLabel:niceDate(due),amount:Math.round(amount*100)/100,manual:manual!=null,paid,left:Math.round((amount-paid)*100)/100,current,daysToDue:Math.round(dayDiff(due,t)),key});
+ });return out}
+function renderCardBills(){
+ const st=cardBillStates();const creditCards=S.settings.cards.filter(c=>c.id!=="debit");
+ const missing=creditCards.filter(c=>!c.closeDay).map(c=>c.name);
+ $("ccNote").textContent=st.filter(b=>b.left>0.005&&b.daysToDue<=5).length?"Payment due soon":"";
+ $("ccList").innerHTML=st.map(b=>`<div class="cardbill" data-cc="${esc(b.card.id)}">
+  <div class="status"><b>${esc(b.card.name)}</b>${b.left<=0.005?'<span class="chip good">Paid</span>':`<span class="chip ${b.daysToDue<0?"over":b.daysToDue<=5?"warn":"est"}">${b.daysToDue<0?Math.abs(b.daysToDue)+" days overdue":b.daysToDue===0?"Due today":"Due in "+b.daysToDue+" days"}</span>`}</div>
+  <div class="kv"><span>Statement ${niceDate(b.close)}${b.manual?"":" (from logged spending)"}</span><span class="num">${fmt.format(b.amount)}</span>
+  <span>Paid since</span><span class="num">${fmt.format(b.paid)}</span>
+  <span class="tot">Left to pay by ${b.dueLabel}</span><span class="num tot">${fmt.format(Math.max(0,b.left))}</span>
+  <span class="muted">New charges this cycle</span><span class="num muted">${fmt.format(b.current)}</span></div>
+  <div class="inline"><input type="number" inputmode="decimal" step="0.01" min="0" data-ccamt value="${b.left>0?b.left.toFixed(2):""}" aria-label="Payment amount" placeholder="0.00"><button class="btn sm" type="button" data-ccpay>Record payment</button><button class="btn ghost sm" type="button" data-ccset>Set amount</button></div>
+ </div>`).join("")+(missing.length?`<p class="small muted" style="padding-top:8px">Add statement and due days for ${esc(missing.join(", "))} in Settings → Cards to track ${missing.length>1?"their":"its"} bill.</p>`:"");
+}
+$("ccList").addEventListener("click",async e=>{const box=e.target.closest("[data-cc]");if(!box)return;const b=cardBillStates().find(x=>x.card.id===box.dataset.cc);if(!b)return;
+ const v=Math.round((Number(box.querySelector("[data-ccamt]").value)||0)*100)/100;
+ try{
+  if(e.target.matches("[data-ccpay]")){if(!(v>0))return;e.target.disabled=true;await S.db.collection("payments").add({card:b.card.id,amount:v,date:today(),month:today().slice(0,7),ts:Date.now()})}
+  if(e.target.matches("[data-ccset]")){const inp=box.querySelector("[data-ccamt]");if(e.target.dataset.armed){await S.db.doc("cardstmts/"+b.key).set({amount:v});return}
+   e.target.dataset.armed="1";e.target.textContent="Save as statement amount";inp.value=b.amount.toFixed(2);inp.focus();inp.select()}
+ }catch(err){showBanner(writeErr(err))}});
+
+/* ---- tax (2026, BC resident, employment income) ---- */
+const TAX={year:2026,fed:{br:[[58523,.14],[117045,.205],[181440,.26],[258482,.29],[Infinity,.33]],bpa:16452,low:.14,cea:1501},
+ bc:{br:[[50363,.056],[100728,.077],[115648,.105],[140430,.1229],[190405,.147],[265545,.168],[Infinity,.205]],bpa:13216,low:.056},
+ cpp:{rate:.0595,ympe:74600,exempt:3500,rate2:.04,yampe:85000},ei:{rate:.0163,max:68900}};
+function bracketTax(inc,br){let t=0,prev=0;for(const [top,r] of br){if(inc>prev)t+=(Math.min(inc,top)-prev)*r;prev=top}return t}
+function annualTax(gross){
+ const c=TAX.cpp;const cpp=Math.max(0,Math.min(gross,c.ympe)-c.exempt)*c.rate,cpp2=Math.max(0,Math.min(gross,c.yampe)-c.ympe)*c.rate2,ei=Math.min(gross,TAX.ei.max)*TAX.ei.rate;
+ const enh=cpp/5.95,base=cpp-enh,taxable=Math.max(0,gross-enh-cpp2);
+ const fed=Math.max(0,bracketTax(taxable,TAX.fed.br)-(TAX.fed.bpa+base+ei+Math.min(TAX.fed.cea,gross))*TAX.fed.low);
+ const bc=Math.max(0,bracketTax(taxable,TAX.bc.br)-(TAX.bc.bpa+base+ei)*TAX.bc.low);
+ return {fed,bc,tax:fed+bc,cpp:cpp+cpp2,ei}}
+function taxStates(){
+ const y=S.month.slice(0,4);return people().slice(0,2).map(p=>{
+  const pay=S.yearInc.filter(e=>e.who===p&&Number(e.gross)>0);if(!pay.length)return {p,none:true};
+  const gross=sum(pay,e=>e.gross),withheld=sum(pay,e=>e.tax);
+  // each cheque pays for roughly the two weeks before it, so count days from two weeks before the first one
+  const first=pay.map(e=>e.date).sort()[0];const end=today().slice(0,4)===y?today():`${y}-12-31`;
+  const covered=Math.min(365,Math.max(14,dayDiff(end,first)+14));const k=365/covered;const months=Math.round(covered/30.4);
+  const projGross=gross*k,projWith=withheld*k;const owe=annualTax(projGross).tax-projWith;
+  const t=new Date();const monthsLeft=Math.max(1,(Number(y)+1-t.getFullYear())*12+4-(t.getMonth()+1));
+  return {p,gross,withheld,projGross,owe,setAside:owe>0?owe/monthsLeft:0,months}})}
+function renderTax(){
+ $("taxTitle").textContent=`Tax time (${S.month.slice(0,4)} return)`;
+ $("taxBody").innerHTML=taxStates().map(s=>s.none?`<p class="small"><b>${esc(s.p)}:</b> <span class="muted">add gross pay and income tax from pay stubs (Income → Pay stub details) to see an estimate.</span></p>`:
+  `<div style="display:flex;flex-direction:column;gap:6px;padding:6px 0"><b>${esc(s.p)}</b><div class="kv">
+  <span>Gross pay so far</span><span class="num">${fmt0.format(s.gross)}</span><span>Income tax deducted so far</span><span class="num">${fmt0.format(s.withheld)}</span>
+  <span>Year at this pace</span><span class="num">${fmt0.format(s.projGross)} gross</span>
+  <span class="tot">${s.owe>100?"Likely to owe":s.owe<-100?"Likely refund":"Looks on track"}</span><span class="num tot" style="color:${s.owe>100?"var(--bad)":"var(--good)"}">${Math.abs(s.owe)>100?fmt0.format(Math.abs(s.owe)):"±$100"}</span>
+  ${s.owe>100?`<span>Set aside each month until April</span><span class="num">${fmt0.format(s.setAside)}</span>`:""}</div></div>`).join("");
+}
+
+/* ---- paycheque estimate ---- */
+const PERIODS={weekly:52,biweekly:26,semimonthly:24,monthly:12};
+let lastEst=null;
+function renderEstimate(){
+ const jobs=S.settings.jobs||[];$("estEmpty").hidden=!!jobs.length;$("estForm").hidden=!jobs.length;
+ const j=jobs[+$("estJob").value||0];if(!j){$("estOut").hidden=$("estBtns").hidden=$("estNote").hidden=true;return}
+ const rate=Number(j.rate)||0,n=PERIODS[j.freq]||26;
+ const gross=rate*(Number($("estHrs").value)||0)+rate*1.5*((Number($("estOt").value)||0)+(Number($("estStat").value)||0))+(Number($("estExtra").value)||0);
+ if(!gross){$("estOut").hidden=$("estBtns").hidden=true;$("estNote").hidden=false;$("estOut").innerHTML="";return}
+ const a=annualTax(gross*n),cpp=a.cpp/n,ei=a.ei/n,tax=a.tax/n,other=Number(j.other)||0,net=gross-cpp-ei-tax-other;
+ lastEst={j,gross,tax,net};
+ $("estOut").innerHTML=`<span>Gross</span><span class="num">${fmt.format(gross)}</span><span>CPP</span><span class="num">−${fmt.format(cpp)}</span><span>EI</span><span class="num">−${fmt.format(ei)}</span>
+  <span>Income tax</span><span class="num">−${fmt.format(tax)}</span>${other?`<span>Other deductions</span><span class="num">−${fmt.format(other)}</span>`:""}
+  <span class="tot">Estimated take-home</span><span class="num tot">${fmt.format(net)}</span>`;
+ $("estOut").hidden=$("estBtns").hidden=$("estNote").hidden=false;
+}
+["estJob","estHrs","estOt","estStat","estExtra"].forEach(id=>$(id).addEventListener("input",renderEstimate));
+$("estUse").addEventListener("click",()=>{if(!lastEst)return;const j=lastEst.j;
+ $("inAmt").value=lastEst.net.toFixed(2);$("inGross").value=lastEst.gross.toFixed(2);$("inTax").value=lastEst.tax.toFixed(2);
+ const src=incomeSources().find(x=>normDesc(x)===normDesc(j.name))||incomeSources().find(x=>normDesc(x).startsWith(normDesc(j.person||"")))||incomeSources()[0];$("inSrc").value=src;
+ if(people().includes(j.person))$("inWho").value=j.person;$("inNote").value=`Estimate: ${j.name||"job"}`;
+ $("inForm").querySelector("details").open=true;$("inAmt").scrollIntoView({behavior:"smooth",block:"center"});$("inHint").textContent="Filled in from the estimate. Change the numbers to match the real pay stub when it arrives."});
+$("addJob").addEventListener("click",()=>{S.settings.jobs=[...(S.settings.jobs||[]),{name:"New job",person:thisPhoneOr(people()[0]),rate:0,freq:"biweekly",other:0}];saveSettings();fillDynamic();renderSettings();
+ setTimeout(()=>{const el=$("job-n-"+(S.settings.jobs.length-1));el?.focus();el?.select()},0)});
+function thisPhoneOr(d){try{const p=typeof thisPhone==="function"?thisPhone():"";return people().includes(p)?p:d}catch{return d}}
+
+/* ---- month summary ---- */
+function summaryData(m){
+ const ex=S.yearExp.filter(e=>e.month===m);const I=incomeFor(m);const spent=sum(ex,e=>e.amount);
+ const saved=sum(S.contribs.filter(c=>c.month===m),c=>c.amount);const budget=sum(Object.values(S.settings.budgets),v=>v);
+ const by={};ex.forEach(e=>{by[e.cat]=(by[e.cat]||0)+e.amount});
+ const top=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const over=CATS.filter(([k])=>(by[k]||0)>(Number(S.settings.budgets[k])||0)+0.5&&(Number(S.settings.budgets[k])||0)>0).map(([k,l])=>[l,(by[k]||0)-(Number(S.settings.budgets[k])||0)]);
+ const big=[...ex].sort((a,b)=>b.amount-a.amount).slice(0,3);
+ const pm=shiftMonth(m,-1);const prevSpent=sum(S.yearExp.filter(e=>e.month===pm),e=>e.amount);
+ const earned=sum(ex,e=>e.amount*rate(e.card,e.cat)/100),best=sum(ex,e=>e.amount*bestCard(e.cat).rate/100);
+ return {m,I,spent,saved,budget,top,over,big,pm,prevSpent,earned,missed:best-earned,room:roommateState(m),left:I.used-spent-saved,n:ex.length}}
+function summaryLines(d){
+ const L=[];const lbl=MONTHS[Number(d.m.slice(5))-1]+" "+d.m.slice(0,4);
+ L.push(["",`Household Ledger · ${lbl}`]);
+ L.push(["Money",`Income ${fmt0.format(d.I.used)}${d.I.estimated?" (expected)":""} · Spent ${fmt0.format(d.spent)} · Saved ${fmt0.format(d.saved)} · Left over ${fmt0.format(d.left)}`]);
+ L.push(["Budget",`${fmt0.format(d.spent)} of ${fmt0.format(d.budget)} (${d.budget?Math.round(d.spent/d.budget*100):0}%)${d.over.length?" · over in "+d.over.map(([l,v])=>`${l} (+${fmt0.format(v)})`).join(", "):" · every category within budget"}`]);
+ if(d.top.length)L.push(["Most spent on",d.top.map(([k,v])=>`${CATL[k]} ${fmt0.format(v)}`).join(", ")]);
+ if(d.big.length)L.push(["Biggest purchases",d.big.map(e=>`${e.note||CATL[e.cat]} ${fmt0.format(e.amount)}`).join(", ")]);
+ if(d.prevSpent)L.push(["Compared with "+MONTHS[Number(d.pm.slice(5))-1],`spending ${d.spent>=d.prevSpent?"up":"down"} ${Math.abs(Math.round((d.spent-d.prevSpent)/d.prevSpent*100))}% (${fmt0.format(d.prevSpent)} before)`]);
+ L.push(["Card rewards",`earned ${fmt.format(d.earned)}${d.missed>0.5?`, missed ${fmt.format(d.missed)} by not using the best card`:""}`]);
+ if(d.room)L.push(["Roommate rent",d.room.paid>=d.room.amt-0.5?`received ${fmt0.format(d.room.paid)}`:`${fmt0.format(d.room.amt-d.room.paid)} still owed`]);
+ taxStates().filter(t=>!t.none&&t.owe>100).forEach(t=>L.push(["Tax",`${t.p} likely owes about ${fmt0.format(t.owe)}: set aside ${fmt0.format(t.setAside)} a month`]));
+ return L}
+function renderSummary(){
+ const d=summaryData(S.month);const closed=S.month<today().slice(0,7);
+ if(closed&&!$("sumPanel").dataset.touched)$("sumPanel").open=true;else if(!$("sumPanel").dataset.touched)$("sumPanel").open=false;
+ $("sumBody").innerHTML=d.n||d.I.actual?summaryLines(d).slice(1).map(([k,v])=>`<p><b>${esc(k)}:</b> ${esc(v)}</p>`).join(""):`<p class="muted">Nothing logged for ${monthLabel(S.month)} yet.</p>`;
+}
+$("sumPanel").addEventListener("toggle",()=>{$("sumPanel").dataset.touched="1"});
+$("sumShare").addEventListener("click",async()=>{const text=summaryLines(summaryData(S.month)).map(([k,v])=>k?`${k}: ${v}`:v).join("\n");
+ try{if(navigator.share){await navigator.share({text});return}}catch(e){if(e&&e.name==="AbortError")return}
+ try{await navigator.clipboard.writeText(text);$("sumMsg").textContent="Copied. Paste it in WhatsApp or a note."}catch{$("sumMsg").textContent="Couldn't share from here."}});
 
 /* ---------- this phone, AI, sync ---------- */
 $("thisPhone").addEventListener("change",e=>{try{localStorage.setItem("hl-phone",e.target.value)}catch{};$("exWho").value=e.target.value||"Joint"});
@@ -1204,7 +1673,7 @@ $("aiOn").addEventListener("change",async e=>{try{localStorage.setItem("hl-ai",e
  else aiStatus("Off. Rules still sort known merchants.");render()});
 let aiBusy=false;
 async function aiRunReview(){
- if(!aiEnabled()||aiBusy)return;const todo=S.review.filter(r=>!r.aiCat);if(!todo.length)return;aiBusy=true;
+ if(!aiEnabled()||aiBusy)return;const todo=S.review.filter(r=>!r.aiCat&&r.kind!=="in");if(!todo.length)return;aiBusy=true;
  try{const seen=new Map();
   S.yearExp.forEach(e=>{if(e.note&&e.cat&&!seen.has(e.note.toLowerCase()))seen.set(e.note.toLowerCase(),e.cat)});
   const examples=[...seen.entries()].slice(-300).map(([text,cat])=>({text,cat}));
@@ -1214,6 +1683,11 @@ async function aiRunReview(){
  }catch(e){}finally{aiBusy=false}}
 function lastBackupNote(){let t=0;try{t=+localStorage.getItem("hl-lastbackup")||0}catch{}
  $("lastBackup").textContent=t?`Last sent ${new Date(t).toLocaleDateString("en-CA",{month:"short",day:"numeric"})}`:"Not backed up yet";return t}
+$("exportInc").addEventListener("click",async()=>{
+ const snap=await LDB.collection("income").get();const rows=snap.docs.map(d=>d.data()).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+ const q=v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+ const csv=["Date,Amount,Source,Who,Note"].concat(rows.map(r=>[r.date,Number(r.amount).toFixed(2),r.source,r.who||"",r.note||""].map(q).join(","))).join("\n");
+ await offerFile(`household-ledger-income-${today()}.csv`,csv,"text/csv")});
 $("backupBtn").addEventListener("click",async()=>{const who=thisPhone()||"phone";
  const r=await offerFile(`household-ledger-backup-${today()}-${who.replace(/[^A-Za-z0-9]+/g,"-")}.json`,JSON.stringify(LDB.exportData()),"application/json");
  if(r!=="cancelled"){try{localStorage.setItem("hl-lastbackup",String(Date.now()))}catch{}lastBackupNote();$("syncMsg").textContent=r==="shared"?"Backup ready. Open it on the other phone with Merge a backup.":"Backup saved to Downloads. Send it to the other phone."}});
@@ -1231,7 +1705,7 @@ const SEED={"settings":{"income":0,"people":["Me","Wife"],"budgets":{"rent":1600
  }
  S.db=LDB;$("aiOn").checked=aiEnabled();if(aiEnabled())aiStatus("On. Loads when needed; works offline after the first download.");
  const db=LDB;
- db.doc("settings/main").onSnapshot(s=>{if(s.exists){S.settings={...structuredClone(DEFAULTS),...structuredClone(s.data())}}fillDynamic();suggestCard();render()});
+ db.doc("settings/main").onSnapshot(s=>{if(S.pendingSave)return;if(s.exists){S.settings={...structuredClone(DEFAULTS),...structuredClone(s.data())}}fillDynamic();suggestCard();render()});
  db.doc("settings/rules").onSnapshot(s=>{S.rules=s.exists?(s.data().rules||[]):[];if(S.tab==="settings")renderRules()});
  db.doc("imports/ignored").onSnapshot(s=>{S.ignored=s.exists?(s.data().ids||[]):[]});
  db.collection("bills").onSnapshot(s=>{S.bills=docs(s);render()});
