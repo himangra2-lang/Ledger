@@ -1,9 +1,9 @@
 /* Household Ledger service worker: makes the app open offline.
    App files: network first (so updates arrive), cached copy when offline.
    AI library files from jsdelivr and fonts: cached after first use. */
-const VERSION = 'hl-v1';
+const VERSION = 'hl-v2';
 const RUNTIME = 'hl-runtime';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
+const SHELL = ['./', './index.html', './convert.html', './pdf.min.mjs', './pdf.worker.min.mjs', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

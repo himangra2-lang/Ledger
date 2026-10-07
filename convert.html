@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Statement Converter</title>
+<meta name="theme-color" content="#1f5c4a">
+<meta name="description" content="Turn bank and credit card statement PDFs into CSV files, on your phone.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column, three steps in order (pick file, check rows, send). Same look as the Ledger app. */
+:root{
+  --bg:#f2f5f3; --surface:#ffffff; --sunk:#e8eeeb; --ink:#16201c; --muted:#5a6a63; --line:#d6dfda;
+  --accent:#1f5c4a; --accent-ink:#ffffff; --accent-soft:#d9ebe3;
+  --good:#2c7845; --warn:#a96c12; --bad:#b0352d; --bad-soft:#f6dedb; --warn-soft:#f5e8cf;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1412; --surface:#161f1c; --sunk:#1c2724; --ink:#e4ece8; --muted:#90a199; --line:#2a3632;
+  --accent:#6cc4a4; --accent-ink:#0a1512; --accent-soft:#1c3a30;
+  --good:#5cc27e; --warn:#e2aa48; --bad:#f06b61; --bad-soft:#3a1f1d; --warn-soft:#3a2e17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1412; --surface:#161f1c; --sunk:#1c2724; --ink:#e4ece8; --muted:#90a199; --line:#2a3632;
+  --accent:#6cc4a4; --accent-ink:#0a1512; --accent-soft:#1c3a30;
+  --good:#5cc27e; --warn:#e2aa48; --bad:#f06b61; --bad-soft:#3a1f1d; --warn-soft:#3a2e17; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.wrap>*{min-width:0}
+h1,h2{font-family:var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.35rem}h2{font-size:1.05rem}
+p{margin:0}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-inline:-16px;padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.top .wrap{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.back{color:var(--accent);font-weight:600;text-decoration:none;font-size:.9rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel>*{min-width:0}
+.step{display:flex;gap:10px;align-items:baseline}
+.step b{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:.8rem}
+.muted{color:var(--muted)}.small{font-size:.82rem}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+label{font-size:.75rem;font-weight:600;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+input[type=file]{background:transparent;border:0;padding:0;max-width:100%}
+input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--accent);flex:0 0 auto}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.grid{grid-template-columns:1fr 1fr}.grid .full{grid-column:1/-1}}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.check{display:flex;gap:8px;align-items:center;font-size:.88rem}
+.btn{font:600 .95rem var(--f-body);border:0;border-radius:8px;padding:11px 16px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .btn{flex:1 1 auto}
+.notice{font-size:.88rem;padding:10px 12px;border-radius:8px;background:var(--accent-soft)}
+.notice.bad{background:var(--bad-soft)}
+.notice.warn{background:var(--warn-soft)}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.summary>div{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;min-width:0}
+.summary .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.summary .v{font-family:var(--f-num);font-size:clamp(.82rem,3.4vw,1.02rem);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx{display:flex;flex-direction:column}
+.trow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px 10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.trow:first-child{border-top:0}
+.trow.off{opacity:.45}
+.trow .d{display:flex;flex-direction:column;min-width:0}
+.trow .desc{font-weight:600;overflow-wrap:anywhere;font-size:.9rem}
+.trow .meta{font-size:.76rem;color:var(--muted)}
+.amt{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:.9rem;white-space:nowrap}
+.amt.in{color:var(--good)}
+.swap{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:3px 7px;font-size:.75rem;cursor:pointer}
+.chip{display:inline-block;font-size:.68rem;font-weight:600;padding:0 6px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-left:4px}
+details summary{cursor:pointer;font-weight:600;font-size:.88rem;color:var(--accent)}
+details[open] summary{margin-bottom:10px}
+.ign{font-family:var(--f-num);font-size:.78rem;color:var(--muted);overflow-wrap:anywhere;padding:4px 0;border-top:1px dashed var(--line)}
+.privacy{font-size:.8rem;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><h1>Statement Converter</h1><a class="back" href="./">← Ledger</a></div></div>
+
+<div class="wrap" style="margin-top:16px">
+  <section class="panel">
+    <div class="step"><b>1</b><h2>Choose a statement PDF</h2></div>
+    <div class="drop">
+      <label for="pdf" style="font-size:.9rem;color:var(--ink)">Bank or credit card statement (PDF)</label>
+      <input id="pdf" type="file" accept="application/pdf,.pdf">
+      <span class="small muted">Download it from online banking first. It's read on this phone and never uploaded.</span>
+    </div>
+    <div class="f" id="pwBox" hidden>
+      <label for="pw">This PDF has a password</label>
+      <div class="actions"><input id="pw" type="password" autocomplete="off" style="flex:1 1 180px"><button class="btn" id="pwGo" type="button">Open</button></div>
+    </div>
+    <p id="msg" class="notice" hidden aria-live="polite"></p>
+  </section>
+
+  <section class="panel" id="results" hidden>
+    <div class="step"><b>2</b><h2>Check the transactions</h2></div>
+    <div class="summary">
+      <div><span class="k">Found</span><span class="v" id="sN">0</span></div>
+      <div><span class="k">Money out</span><span class="v" id="sOut">$0</span></div>
+      <div><span class="k">Money in</span><span class="v" id="sIn">$0</span></div>
+    </div>
+    <p class="small muted" id="detected"></p>
+    <details id="opts">
+      <summary>Dates, years or amounts look wrong?</summary>
+      <div class="grid">
+        <div class="f"><label for="year">Statement year</label><input id="year" type="number" inputmode="numeric" min="2000" max="2100"></div>
+        <div class="f"><label for="order">Number dates like 03/04</label><select id="order"><option value="MDY">Month first</option><option value="DMY">Day first</option></select></div>
+        <div class="f full"><label for="kind">Statement type</label><select id="kind"><option value="auto">Work it out</option><option value="card">Credit card</option><option value="bank">Bank account</option></select></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+        <label class="check"><input type="checkbox" id="carry" checked> Rows without a date use the date above them</label>
+        <label class="check"><input type="checkbox" id="join" checked> Join descriptions that wrap onto a second line</label>
+      </div>
+      <p class="small muted" style="margin-top:8px">If a statement spans December and January, December rows get the year before.</p>
+    </details>
+    <p class="small muted">Untick anything that isn't a real transaction. Tap ⇄ if money out and money in are the wrong way round.</p>
+    <div class="tx" id="list"></div>
+    <details id="ignBox" hidden>
+      <summary>Lines with amounts that weren't used</summary>
+      <p class="small muted">Balances and totals usually. If a real purchase is here, try the options above or tell whoever helps you with the app.</p>
+      <div id="ignList"></div>
+    </details>
+  </section>
+
+  <section class="panel" id="sendBox" hidden>
+    <div class="step"><b>3</b><h2>Use it</h2></div>
+    <div class="actions">
+      <button class="btn" id="toLedger" type="button">Send to Ledger import</button>
+      <button class="btn ghost" id="saveCsv" type="button">Save CSV</button>
+    </div>
+    <p class="small muted">Send to Ledger opens the Import tab with these rows ready. Pick the account there and tap Import. Save CSV gives you a file for Google Sheets, Excel or another app.</p>
+  </section>
+
+  <p class="privacy">Works offline. Nothing you open here leaves this phone.</p>
+</div>
+
+<script>
+/* Statement Converter core: turns the text of a bank or credit card statement PDF into transactions.
+   Pure functions only (no page or PDF library access), so the same code runs in the browser and in tests.
+   Input: pages = [{ items: [{ str, x, y, w, h }] }]  (positions from the PDF; y grows upward)
+   Output: { rows: [{ date, desc, debit, credit, carried, page }], ignored: [...], info } */
+var StmtCore = (function () {
+  var MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  var FR = { janv: 1, févr: 2, fevr: 2, mars: 3, avr: 4, mai: 5, juin: 6, juil: 7, août: 8, aout: 8, sept: 9, oct: 10, nov: 11, déc: 12, dec: 12 };
+
+  function monthOf(w) {
+    w = String(w || '').toLowerCase().replace(/[.,]$/, '');
+    if (w.length < 3) return 0;
+    for (var i = 0; i < 12; i++) if (MONTHS[i].indexOf(w) === 0) return i + 1;
+    if (w === 'sept') return 9;
+    return FR[w] || 0;
+  }
+
+  var MONEY = /^\(?[-−–]?\$?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:CR|DR|-)?$|^\(?[-−–]?\$?\d+\.\d{2}\)?(?:CR|DR|-)?$/i;
+  function isMoney(t) { return MONEY.test(t); }
+  function moneyVal(t) {
+    var neg = (/^\(/.test(t) || /^[-−–]/.test(t) || /-$/.test(t) || /CR$/i.test(t)) && !/DR$/i.test(t);
+    var v = parseFloat(t.replace(/[^\d.]/g, ''));
+    return neg ? -v : v;
+  }
+  function validDay(d) { return d >= 1 && d <= 31; }
+
+  /* Group positioned text pieces into lines of words, top to bottom. */
+  function itemsToLines(items, page) {
+    var its = items.filter(function (i) { return i.str && i.str.trim(); })
+                   .sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var lines = [];
+    its.forEach(function (it) {
+      var tol = Math.max(2, (it.h || 8) * 0.5), L = null;
+      for (var k = lines.length - 1; k >= 0 && k >= lines.length - 3; k--) {
+        if (Math.abs(lines[k].y - it.y) <= tol) { L = lines[k]; break; }
+      }
+      if (!L) { L = { y: it.y, h: it.h || 8, page: page, words: [] }; lines.push(L); }
+      var cw = (it.w || it.str.length * 5) / Math.max(1, it.str.length), re = /\S+/g, m;
+      while ((m = re.exec(it.str))) L.words.push({ t: m[0], x0: it.x + m.index * cw, x1: it.x + (m.index + m[0].length) * cw });
+    });
+    lines.forEach(function (L) {
+      L.words.sort(function (a, b) { return a.x0 - b.x0; });
+      // glue "$" to the number after it and CR / DR / "-" to the number before it
+      var w = [];
+      L.words.forEach(function (x) {
+        var prev = w[w.length - 1];
+        if (prev && /^(CR|DR|-)$/i.test(x.t) && isMoney(prev.t)) { prev.t += x.t.toUpperCase(); prev.x1 = x.x1; return; }
+        if (prev && prev.t === '$' && /^[\d(]/.test(x.t)) { prev.t = '$' + x.t; prev.x1 = x.x1; return; }
+        w.push({ t: x.t, x0: x.x0, x1: x.x1 });
+      });
+      L.words = w;
+      L.text = w.map(function (x) { return x.t; }).join(' ');
+    });
+    return lines;
+  }
+
+  /* Read a date from the start of a word list. Returns {m, d, y, n} (n = words used) or null. */
+  function dateAt(w, i, order) {
+    var a = w[i] && w[i].t, b = w[i + 1] && w[i + 1].t, c = w[i + 2] && w[i + 2].t, m, mo, d, y;
+    if (!a) return null;
+    if ((m = a.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/))) return ok(+m[2], +m[3], +m[1], 1);
+    if ((m = a.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?$/))) {
+      var p = +m[1], q = +m[2], yy = m[3] ? +m[3] : null;
+      return order === 'DMY' || (p > 12 && q <= 12) ? ok(q, p, yy, 1) : ok(p, q, yy, 1);
+    }
+    if ((m = a.match(/^(\d{1,2})[-\s]?([A-Za-zÀ-ÿ]{3,9})\.?(?:[-\s]?(\d{2,4}))?$/)) && monthOf(m[2])) return ok(monthOf(m[2]), +m[1], m[3] ? +m[3] : null, 1);
+    if ((m = a.match(/^([A-Za-zÀ-ÿ]{3,9})\.?[-]?(\d{1,2})$/)) && monthOf(m[1])) return ok(monthOf(m[1]), +m[2], yearWord(b), yearWord(b) ? 2 : 1);
+    if ((mo = monthOf(a)) && b && (m = b.match(/^(\d{1,2}),?$/))) { y = yearWord(c); return ok(mo, +m[1], y, y ? 3 : 2); }
+    if (/^\d{1,2}$/.test(a) && b && (mo = monthOf(b))) { y = yearWord(c); return ok(mo, +a, y, y ? 3 : 2); }
+    return null;
+    function ok(mm, dd, yy, n) { if (!(mm >= 1 && mm <= 12) || !validDay(dd)) return null; if (yy && yy < 100) yy += 2000; return { m: mm, d: dd, y: yy || null, n: n }; }
+  }
+  function yearWord(t) { var m = t && t.match(/^(\d{4}),?$/); return m && +m[1] > 1990 && +m[1] < 2100 ? +m[1] : null; }
+
+  var SUMMARY = /\b(opening|closing|previous|new|ending|beginning|starting|last statement)\s+balance\b|balance\s+(forward|brought|carried|from)|\btotal\b|sub-?total|minimum payment|payment due|credit limit|available credit|interest rate|annual interest|amount due|statement balance/i;
+  var BAL_ANCHOR = /\b(opening|previous|beginning|starting)\s+balance\b|balance\s+(forward|brought|from)/i;
+
+  /* Split one line into date(s), description and trailing amounts. */
+  function splitLine(L, order) {
+    var w = L.words, i = 0, d1 = dateAt(w, 0, order), d2 = null;
+    if (d1) { i = d1.n; d2 = dateAt(w, i, order); if (d2) i += d2.n; }
+    var j = w.length, amts = [];
+    while (j > i && amts.length < 4 && isMoney(w[j - 1].t)) { amts.unshift({ v: moneyVal(w[j - 1].t), x1: w[j - 1].x1, raw: w[j - 1].t }); j--; }
+    var descWords = w.slice(i, j);
+    return { date: d1, post: d2, desc: descWords.map(function (x) { return x.t; }).join(' '), descX: descWords.length ? descWords[0].x0 : null, amts: amts, line: L };
+  }
+
+  function cluster(xs, tol) {
+    xs = xs.slice().sort(function (a, b) { return a - b; });
+    var out = [];
+    xs.forEach(function (x) {
+      var c = out[out.length - 1];
+      if (c && x - c.max <= tol) { c.max = x; c.sum += x; c.n++; } else out.push({ min: x, max: x, sum: x, n: 1 });
+    });
+    out.forEach(function (c) { c.x = c.sum / c.n; });
+    return out;
+  }
+  function nearest(clusters, x, tol) {
+    var best = -1, bd = Infinity;
+    clusters.forEach(function (c, k) { var d = Math.abs(c.x - x); if (d < bd) { bd = d; best = k; } });
+    return bd <= tol ? best : -1;
+  }
+
+  /* opts: { order: 'MDY'|'DMY', year: 2026, kind: 'card'|'bank'|'auto', carryDates: true, joinWrapped: true } */
+  function convert(pages, opts) {
+    opts = opts || {};
+    var order = opts.order === 'DMY' ? 'DMY' : 'MDY';
+    var lines = [];
+    pages.forEach(function (p, k) { lines = lines.concat(itemsToLines(p.items, k + 1)); });
+    var fullText = lines.map(function (l) { return l.text; }).join('\n');
+    var kind = opts.kind && opts.kind !== 'auto' ? opts.kind
+      : (/credit card|visa|mastercard|american express|amex|card number|minimum payment|credit limit/i.test(fullText) ? 'card' : 'bank');
+
+    // 1. lines with a date, a description and an amount
+    var parts = lines.map(function (L) { return splitLine(L, order); });
+    var dated = parts.filter(function (p) { return p.date && p.amts.length && p.desc.length >= 2 && !SUMMARY.test(p.desc); });
+    var charW = 5;
+    var clusters = cluster([].concat.apply([], dated.map(function (p) { return p.amts.map(function (a) { return a.x1; }); })), 14);
+    clusters = clusters.filter(function (c) { return c.n >= Math.max(1, Math.round(dated.length * 0.04)); });
+    var descX = dated.map(function (p) { return p.descX; }).filter(function (x) { return x != null; }).sort(function (a, b) { return a - b; });
+    var descStart = descX.length ? descX[Math.floor(descX.length / 2)] : null;
+
+    // 2. walk the document in order: dated rows, rows that reuse the date above, wrapped description lines
+    var txns = [], ignored = [], lastDate = null, lastTxn = null, anchors = [];
+    parts.forEach(function (p, idx) {
+      var L = p.line;
+      if (p.amts.length && BAL_ANCHOR.test(p.desc)) anchors.push({ idx: txns.length, v: Math.abs(p.amts[p.amts.length - 1].v) });
+      var isSummary = SUMMARY.test(p.desc);
+      if (p.date && p.amts.length && p.desc.length >= 2 && !isSummary) {
+        lastDate = p.date;
+        lastTxn = { date: p.date, desc: p.desc, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: false, descX: p.descX };
+        txns.push(lastTxn); return;
+      }
+      if (p.date && !p.amts.length) { lastDate = p.date; }
+      var inCluster = p.amts.length && p.amts.every(function (a) { return nearest(clusters, a.x1, 16) >= 0; });
+      if (opts.carryDates !== false && !p.date && lastDate && p.amts.length && p.desc.length >= 3 && !isSummary && inCluster &&
+          (descStart == null || Math.abs(p.descX - descStart) < 40)) {
+        lastTxn = { date: lastDate, desc: p.desc, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: true, descX: p.descX };
+        txns.push(lastTxn); return;
+      }
+      if (opts.joinWrapped !== false && lastTxn && !p.date && !p.amts.length && L.page === lastTxn.page &&
+          lastTxn.y - L.y > 0 && lastTxn.y - L.y < (lastTxn.h || 8) * 2.2 && !isSummary &&
+          lastTxn.descX != null && L.words.length && Math.abs(L.words[0].x0 - lastTxn.descX) < 30 && L.text.length < 60 &&
+          !/^page\s+\d|continued|^date\b/i.test(L.text)) {
+        lastTxn.desc += ' ' + L.text; lastTxn.y = L.y; return;
+      }
+      if (p.amts.length) ignored.push({ page: L.page, text: L.text });
+      if (lastTxn && lastTxn.y - L.y > (lastTxn.h || 8) * 2.2) lastTxn = lastTxn; // keep
+    });
+
+    // 3. what does each amount column mean?
+    var role = clusters.map(function () { return null; });
+    if (clusters.length >= 2) {
+      var votes = clusters.map(function () { return { out: 0, in: 0, bal: 0, amt: 0 }; });
+      lines.forEach(function (L) {
+        if (dateAt(L.words, 0, order)) return;
+        L.words.forEach(function (w) {
+          var t = w.t.toLowerCase().replace(/[^a-zé]/g, ''), r = null;
+          if (/^(withdrawals?|debits?|charges|purchases|cheques|retraits?|paidout)$/.test(t)) r = 'out';
+          else if (/^(deposits?|credits?|dépôts?|depots?|paidin)$/.test(t)) r = 'in';
+          else if (/^(balance|solde)$/.test(t)) r = 'bal';
+          if (!r) return;
+          var k = nearest(clusters, w.x1, 70); if (k < 0) k = nearest(clusters, (w.x0 + w.x1) / 2, 70);
+          if (k >= 0) votes[k][r]++;
+        });
+      });
+      votes.forEach(function (v, k) {
+        var best = null, bn = 0;
+        ['out', 'in', 'bal'].forEach(function (r) { if (v[r] > bn) { bn = v[r]; best = r; } });
+        role[k] = best;
+      });
+      // no "balance" heading: test the right-most column as a running balance
+      if (role.indexOf('bal') < 0) {
+        var k = clusters.length - 1, checked = 0, good = 0, prev = null;
+        txns.forEach(function (t) {
+          var b = null, others = [];
+          t.amts.forEach(function (a) { if (nearest(clusters, a.x1, 16) === k) b = Math.abs(a.v); else others.push(Math.abs(a.v)); });
+          if (b != null && prev != null && others.length === 1) { checked++; if (Math.abs(Math.abs(b - prev) - others[0]) < 0.011) good++; }
+          if (b != null) prev = b;
+        });
+        if (checked >= 2 && good / checked >= 0.6) role[k] = 'bal';
+      }
+    }
+    var balK = role.indexOf('bal');
+
+    // 4. turn amounts into money out / money in
+    var prevBal = anchors.length && anchors[0].idx === 0 ? anchors[0].v : null;
+    var learned = {};
+    var rows = txns.map(function (t) {
+      var bal = null, main = [];
+      t.amts.forEach(function (a) {
+        var k = clusters.length ? nearest(clusters, a.x1, 16) : -1;
+        if (k >= 0 && k === balK) bal = a.v; else main.push({ a: a, k: k });
+      });
+      if (!main.length && bal != null && t.amts.length === 1) { main = [{ a: t.amts[0], k: -1 }]; bal = null; }
+      var debit = 0, credit = 0;
+      main.forEach(function (m) {
+        var v = m.a.v, dir = null;
+        if (m.k >= 0 && role[m.k] === 'out') dir = 'out';
+        else if (m.k >= 0 && role[m.k] === 'in') dir = 'in';
+        else if (bal != null && prevBal != null && main.length === 1 && Math.abs(Math.abs(bal - prevBal) - Math.abs(v)) < 0.011) {
+          dir = bal < prevBal ? 'out' : 'in'; if (m.k >= 0) learned[m.k] = (learned[m.k] || 0) + (dir === 'out' ? 1 : -1);
+        }
+        else if (m.k >= 0 && learned[m.k]) dir = learned[m.k] > 0 ? 'out' : 'in';
+        else if (kind === 'card') dir = v < 0 ? 'in' : 'out';
+        else if (clusters.length - (balK >= 0 ? 1 : 0) >= 2 && m.k >= 0) {
+          var nonBal = clusters.map(function (c, i) { return i; }).filter(function (i) { return i !== balK; });
+          dir = m.k === nonBal[0] ? 'out' : 'in';
+        } else dir = v < 0 ? 'out' : (kind === 'bank' && v > 0 && /deposit|payroll|transfer from|credit|refund|interest paid/i.test(t.desc) ? 'in' : 'out');
+        if (dir === 'out') debit += Math.abs(v); else credit += Math.abs(v);
+      });
+      if (bal != null) prevBal = Math.abs(bal);
+      return { date: t.date, desc: t.desc.replace(/\s+/g, ' ').trim(), debit: round(debit), credit: round(credit), carried: t.carried, page: t.page };
+    }).filter(function (r) { return r.debit || r.credit; });
+
+    // 5. years
+    var years = {}, ym;
+    var yre = /\b(20[1-3]\d)\b/g;
+    while ((ym = yre.exec(fullText))) years[ym[1]] = (years[ym[1]] || 0) + 1;
+    var foundYears = Object.keys(years).map(Number).sort();
+    var baseYear = opts.year || (foundYears.length ? Math.max.apply(null, foundYears.filter(function (y) { return y <= new Date().getFullYear() + 1; }).concat([foundYears[0]])) : new Date().getFullYear());
+    var months = {}; rows.forEach(function (r) { months[r.date.m] = 1; });
+    var rollover = months[12] && months[1];
+    rows.forEach(function (r) {
+      var y = r.date.y || (rollover && r.date.m >= 7 ? baseYear - 1 : baseYear);
+      r.iso = y + '-' + pad(r.date.m) + '-' + pad(r.date.d);
+    });
+    return { rows: rows, ignored: ignored, info: { kind: kind, year: baseYear, years: foundYears, columns: clusters.length, roles: role, textItems: lines.length } };
+  }
+
+  function round(v) { return Math.round(v * 100) / 100; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  function toCsv(rows) {
+    var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    return ['Date,Description,Debit,Credit'].concat(rows.map(function (r) {
+      return [r.iso, r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : ''].map(q).join(',');
+    })).join('\n');
+  }
+
+  return { convert: convert, toCsv: toCsv, itemsToLines: itemsToLines, dateAt: dateAt, isMoney: isMoney, moneyVal: moneyVal };
+})();
+if (typeof module !== 'undefined') module.exports = StmtCore;
+
+</script>
+<script type="module">
+import * as pdfjsLib from './pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+
+const $ = id => document.getElementById(id);
+const fmt = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const S = { file: null, bytes: null, pages: null, result: null, rows: [], yearTouched: false };
+
+function msg(text, kind) { const m = $('msg'); m.textContent = text; m.className = 'notice' + (kind ? ' ' + kind : ''); m.hidden = !text; }
+
+$('pdf').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  S.file = f; S.pages = null; S.yearTouched = false; $('pwBox').hidden = true; $('pw').value = '';
+  $('results').hidden = true; $('sendBox').hidden = true;
+  if (!/pdf$/i.test(f.type) && !/\.pdf$/i.test(f.name)) { msg('That file isn\'t a PDF. If you already have a CSV, import it straight into the Ledger.', 'bad'); return; }
+  S.bytes = new Uint8Array(await f.arrayBuffer());
+  open();
+});
+$('pwGo').addEventListener('click', () => open($('pw').value));
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') open($('pw').value); });
+
+async function open(password) {
+  msg('Reading the statement…');
+  try {
+    const doc = await pdfjsLib.getDocument({ data: S.bytes.slice(0), password: password || undefined, isEvalSupported: false }).promise;
+    $('pwBox').hidden = true;
+    const pages = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const tc = await page.getTextContent();
+      pages.push({ items: tc.items.filter(it => 'str' in it).map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width, h: it.height || Math.abs(it.transform[3]) || 8 })) });
+    }
+    S.pages = pages;
+    const chars = pages.reduce((n, p) => n + p.items.reduce((m, it) => m + it.str.trim().length, 0), 0);
+    if (chars < 20) { msg('This PDF looks like a scanned picture, so there\'s no text to read. Download the statement again from online banking (not a scan or photo), or look for a CSV download option.', 'bad'); return; }
+    run();
+  } catch (err) {
+    if (err && err.name === 'PasswordException') {
+      $('pwBox').hidden = false; $('pw').focus();
+      msg(password ? 'That password didn\'t work. Try again.' : 'Enter the PDF\'s password to open it.', password ? 'bad' : '');
+      return;
+    }
+    msg('Couldn\'t open this PDF. It may be damaged; try downloading it again.', 'bad');
+  }
+}
+
+function run() {
+  if (!S.pages) return;
+  const opts = { order: $('order').value, kind: $('kind').value, carryDates: $('carry').checked, joinWrapped: $('join').checked, year: S.yearTouched ? Number($('year').value) || undefined : undefined };
+  const r = StmtCore.convert(S.pages, opts);
+  S.result = r;
+  if (!S.yearTouched) $('year').value = r.info.year;
+  S.rows = r.rows.map((row, i) => ({ ...row, id: i, on: true }));
+  if (!S.rows.length) {
+    msg('No transactions found in this PDF. Try the options under "Dates, years or amounts look wrong?", or check that it is a statement with a list of transactions.', 'warn');
+    $('results').hidden = false; $('opts').open = true; $('sendBox').hidden = true; render(); return;
+  }
+  msg('');
+  $('results').hidden = false; $('sendBox').hidden = false;
+  $('detected').textContent = `Read as a ${r.info.kind === 'card' ? 'credit card' : 'bank account'} statement, year ${r.info.year}.`;
+  render();
+}
+
+function render() {
+  const on = S.rows.filter(r => r.on);
+  $('sN').textContent = on.length;
+  $('sOut').textContent = fmt.format(on.reduce((s, r) => s + r.debit, 0));
+  $('sIn').textContent = fmt.format(on.reduce((s, r) => s + r.credit, 0));
+  $('list').innerHTML = S.rows.map(r => `<div class="trow${r.on ? '' : ' off'}" data-id="${r.id}">
+    <input type="checkbox" data-on aria-label="Include" ${r.on ? 'checked' : ''}>
+    <div class="d"><span class="desc">${esc(r.desc)}</span><span class="meta num">${esc(r.iso)}${r.carried ? '<span class="chip">date from row above</span>' : ''}</span></div>
+    <span class="amt ${r.credit ? 'in' : ''}">${r.credit ? '+' + fmt.format(r.credit) : fmt.format(r.debit)}</span>
+    <button class="swap" type="button" data-swap aria-label="Swap money in and out">⇄</button></div>`).join('');
+  const ign = S.result ? S.result.ignored : [];
+  $('ignBox').hidden = !ign.length;
+  $('ignList').innerHTML = ign.map(i => `<div class="ign">p${i.page} · ${esc(i.text)}</div>`).join('');
+  $('toLedger').disabled = $('saveCsv').disabled = !on.length;
+}
+
+$('list').addEventListener('change', e => { if (!e.target.matches('[data-on]')) return; const r = S.rows[+e.target.closest('[data-id]').dataset.id]; r.on = e.target.checked; render(); });
+$('list').addEventListener('click', e => { if (!e.target.matches('[data-swap]')) return; const r = S.rows[+e.target.closest('[data-id]').dataset.id]; [r.debit, r.credit] = [r.credit, r.debit]; render(); });
+['order', 'kind', 'carry', 'join'].forEach(id => $(id).addEventListener('change', run));
+$('year').addEventListener('change', () => { S.yearTouched = true; run(); });
+
+const csvName = () => (S.file ? S.file.name.replace(/\.pdf$/i, '') : 'statement') + '.csv';
+const csvText = () => StmtCore.toCsv(S.rows.filter(r => r.on));
+
+$('toLedger').addEventListener('click', () => {
+  try { localStorage.setItem('hl-pending-csv', JSON.stringify({ name: csvName(), text: csvText(), n: S.rows.filter(r => r.on).length, ts: Date.now() })); }
+  catch { msg('Couldn\'t hand the rows to the Ledger on this phone. Use Save CSV instead.', 'bad'); return; }
+  location.href = './#import';
+});
+$('saveCsv').addEventListener('click', async () => {
+  const file = new File([csvText()], csvName(), { type: 'text/csv' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  msg('Saved ' + file.name + ' to your downloads.');
+});
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

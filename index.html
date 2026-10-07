@@ -254,7 +254,9 @@ details[open] summary{margin-bottom:10px}
         <label for="imFile" style="font-size:.9rem;color:var(--ink)">Choose the CSV you downloaded from online banking</label>
         <input id="imFile" type="file" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values" multiple>
         <span class="small muted">Several files from the same account at once is fine. Re-importing the same dates is safe: duplicates are skipped.</span>
+        <a class="small" href="convert.html" style="color:var(--accent);font-weight:600">Only have a PDF statement? Convert it first</a>
       </div>
+      <p class="notice" id="pendNote" hidden></p>
       <details>
         <summary>If amounts or dates come in wrong</summary>
         <div class="grid6">
@@ -1006,14 +1008,14 @@ async function existingImportIds(months){
 
 $("imGo").addEventListener("click",async()=>{
  if(!need())return;
- const files=[...$("imFile").files];const acct=S.settings.accounts.find(a=>a.name===$("imAcct").value);
+ const files=[...$("imFile").files];const pend=pendingCsv();const acct=S.settings.accounts.find(a=>a.name===$("imAcct").value);
  const out=$("imResult");out.hidden=false;
  if(!acct){out.innerHTML='<p class="notice bad">Add your accounts in Settings first.</p>';return}
- if(!files.length){out.innerHTML='<p class="notice bad">Choose a CSV file first.</p>';return}
- if(files.some(f=>/\.(pdf|xlsx?|qfx|ofx)$/i.test(f.name))){out.innerHTML='<p class="notice bad">Only CSV files can be read here. In online banking, download transactions as CSV (sometimes called "Spreadsheet" or "Comma separated").</p>';return}
+ if(!files.length&&!pend){out.innerHTML='<p class="notice bad">Choose a CSV file first.</p>';return}
+ if(files.some(f=>/\.(pdf|xlsx?|qfx|ofx)$/i.test(f.name))){out.innerHTML='<p class="notice bad">PDF and Excel files need converting first. <a href="convert.html">Open the Statement Converter</a> for PDFs, or download transactions as CSV in online banking.</p>';return}
  const btn=$("imGo");btn.disabled=true;btn.textContent="Importing…";
  try{
-  const list=await Promise.all(files.map(readText));
+  const list=files.length?await Promise.all(files.map(readText)):[{name:pend.name,text:pend.text}];
   const opts={sign:$("imSign").value,dateOrder:$("imOrder").value};
   let rows=[],warnings=[];
   list.forEach(f=>{const p=parseStatement(f.text,opts);p.warnings.forEach(w=>warnings.push(f.name+": "+w));rows=rows.concat(p.rows.map(r=>({...r,_f:f.name})))});
@@ -1027,14 +1029,19 @@ $("imGo").addEventListener("click",async()=>{
   const uid=await myId();const ts=Date.now();
   await pool(res.expenses,4,e=>S.db.doc("expenses/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),cat:e.category,card:acct.card,who:acct.who||"Joint",note:e.note,source:acct.name,importId:e.id,by:uid,ts}));
   await pool(res.review,4,e=>S.db.doc("review/"+hashId(e.id)).set({amount:e.amount,date:e.date,month:e.date.slice(0,7),desc:e.desc,keyword:e.keyword,card:acct.card,who:acct.who||"Joint",account:acct.name,importId:e.id,ts}));
-  await S.db.collection("importlog").add({ts,account:acct.name,files:files.map(f=>f.name).join(", "),read:rows.length,added:res.expenses.length,review:res.review.length,skipped:res.skipped,dupes:res.dupes});
+  await S.db.collection("importlog").add({ts,account:acct.name,files:list.map(f=>f.name).join(", "),read:rows.length,added:res.expenses.length,review:res.review.length,skipped:res.skipped,dupes:res.dupes});
   out.innerHTML=`<div class="result"><div><b>${res.expenses.length}</b><span class="small muted">added</span></div><div><b>${res.review.length}</b><span class="small muted">need a category</span></div><div><b>${res.skipped}</b><span class="small muted">skipped (payments, transfers, money in)</span></div><div><b>${res.dupes}</b><span class="small muted">already imported</span></div></div>${warnings.length?`<p class="small muted" style="margin-top:8px">${esc(warnings.join(" "))}</p>`:""}`;
-  $("imFile").value="";
+  $("imFile").value="";if(!files.length&&pend)clearPending();
   const first=rows.map(r=>r.date).sort()[0];if(first&&first.slice(0,7)!==S.month&&res.expenses.length)setMonth(rows.map(r=>r.date).sort().slice(-1)[0].slice(0,7));
  }catch(err){out.innerHTML=`<p class="notice bad">${esc(writeErr(err))}</p>`}
  finally{btn.disabled=false;btn.textContent="Import"}
 });
 
+function pendingCsv(){try{const p=JSON.parse(localStorage.getItem("hl-pending-csv")||"null");return p&&p.text?p:null}catch{return null}}
+function clearPending(){try{localStorage.removeItem("hl-pending-csv")}catch{};showPending()}
+function showPending(){const p=pendingCsv(),el=$("pendNote");if(!el)return;el.hidden=!p;
+ if(p)el.innerHTML=`<b>Converted from PDF:</b> ${esc(p.name)} · ${p.n} transactions. Pick the account above, then tap Import. <button class="btn ghost sm" type="button" id="pendX">Discard</button>`;
+ const x=$("pendX");if(x)x.onclick=clearPending}
 function renderImport(){
  const items=[...S.review].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
  $("rvAll").hidden=!items.some(r=>S.drafts[r.id]?.cat);
@@ -1231,7 +1238,7 @@ const SEED={"settings":{"income":0,"people":["Me","Wife"],"budgets":{"rent":1600
  db.collection("contribs").onSnapshot(s=>{S.contribs=docs(s);render()});
  db.collection("review").onSnapshot(s=>{S.review=docs(s);render();aiRunReview()});
  db.collection("importlog").orderBy("ts","desc").limit(10).onSnapshot(s=>{S.log=docs(s);renderImport()});
- subscribeYear();
+ subscribeYear();showPending();if(pendingCsv())showTab("import");
  const lb=lastBackupNote();
  setTimeout(()=>{if(S.yearExp.length>20&&Date.now()-lb>30*864e5){const b=$("banner");b.className="notice";b.textContent="It's been a while since your last backup. Settings → Sync & backup → Send backup keeps a copy safe and your partner's phone up to date.";b.hidden=false}},1500);
  if("serviceWorker" in navigator&&location.protocol!=="file:"){navigator.serviceWorker.register("sw.js").catch(()=>{})}

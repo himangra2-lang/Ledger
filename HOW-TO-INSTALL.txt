@@ -2,7 +2,9 @@ HOUSEHOLD LEDGER - phone app that runs without Claude
 =====================================================
 
 What's in this folder
-  index.html, sw.js, manifest.webmanifest, and 4 icon files.
+  index.html (the Ledger), convert.html (the PDF Statement Converter), pdf.min.mjs and
+  pdf.worker.min.mjs (the PDF reader the converter uses), sw.js, manifest.webmanifest,
+  and 4 icon files.
   Keep them together. The app needs a free web address before a phone can install it.
 
 1. PUT IT ONLINE FOR FREE WITH GITHUB PAGES (about 5 minutes, works from a phone)
@@ -49,6 +51,15 @@ What's in this folder
   Rows the rules don't recognise go to "Needs a category" (with an AI suggestion
   if it's on). Save them once with "Remember" ticked and they're automatic next time.
 
-6. UPDATING THE APP LATER
-  Upload the new index.html to the same GitHub repository (replace the old one).
+6. PDF STATEMENTS
+  In the Ledger's Import tab tap "Only have a PDF statement? Convert it first"
+  (or open .../convert.html). Pick the PDF, check the rows (untick anything wrong,
+  tap the swap arrows if money in/out is reversed), then tap Send to Ledger import
+  and finish on the Import tab. Save CSV gives you a file for Google Sheets instead.
+  Works with PDFs downloaded from online banking. Scanned or photographed statements
+  have no text to read.
+
+7. UPDATING THE APP LATER
+  Upload the new or changed files to the same GitHub repository (Add file > Upload
+  files; files with the same name are replaced).
   Phones pick it up the next time they open the app online. Your data isn't touched.
