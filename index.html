@@ -227,6 +227,23 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:12px}
 .cardbill:first-child{border-top:0;padding-top:0}
 .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .inline input{width:8.5em}
+.acct{border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:10px}
+.acct-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.acct-head .v{font-size:1.15rem;font-weight:650;text-align:right}
+.hold{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:2px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.hold:first-child{border-top:0}
+.hold .tk{font-weight:600}
+.hold .sub{font-size:.78rem;color:var(--muted)}
+.gain{font-size:.82rem;font-weight:550}
+.gain.up{color:var(--good)} .gain.down{color:var(--bad)}
+.bigv{font-size:2rem;font-weight:650;letter-spacing:-.03em;line-height:1.1}
+.alloc{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px 12px;align-items:center;font-size:.9rem}
+.alloc .h{font-size:.76rem;color:var(--muted)}
+.alloc .bar2{grid-column:1/-1;height:6px;border-radius:999px;background:var(--sunk);position:relative;overflow:hidden;margin-top:-4px}
+.alloc .bar2 i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:999px}
+.alloc .bar2 b{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.price-row{display:grid;grid-template-columns:minmax(0,1fr) 8.5em;gap:10px;align-items:center;padding:6px 0}
+.flag{border-left:3px solid var(--warn);padding:8px 12px;background:var(--warn-soft);border-radius:0 10px 10px 0;font-size:.88rem}
 @media (prefers-reduced-motion:no-preference){.meter>i,.cat .bar i{transition:width .35s ease}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -252,6 +269,7 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:12px}
   <button type="button" id="moreBtn" aria-selected="false" aria-haspopup="true" aria-controls="moreSheet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>More</button>
 </nav>
 <div class="more-sheet" id="moreSheet" hidden>
+  <button type="button" data-tab="invest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5 9 12l4 3.5 7.5-8"/><path d="M15 7.5h5.5V13"/></svg>Invest</button>
   <button type="button" data-tab="bills"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Bills and cards</button>
   <button type="button" data-tab="savings"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg>Savings</button>
   <button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12M10 20V5.5M15 20v-9M20 20v-5"/></svg>Year</button>
@@ -274,6 +292,9 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:12px}
         <div><dt>Saved</dt><dd id="sSaved">—</dd></div>
       </dl>
       <p class="hero-foot" id="meterR"></p>
+    </section>
+    <section class="panel" id="invHome" hidden style="cursor:pointer">
+      <div class="status"><div><h2>Investments</h2><p class="small muted" id="invHomeSub"></p></div><div style="text-align:right"><div class="num" style="font-size:1.25rem;font-weight:650" id="invHomeV"></div><div class="gain" id="invHomeG"></div></div></div>
     </section>
     <section class="panel" id="roomPanel" hidden>
       <div class="status"><div><h2 id="roomTitle">Roommate rent</h2><p class="small muted" id="roomText"></p></div><div id="roomBtns"></div></div>
@@ -479,6 +500,59 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:12px}
     </section>
   </div>
 
+  <!-- INVEST -->
+  <div data-panel="invest" class="wrap" hidden>
+    <section class="panel" id="invEmpty" hidden>
+      <h2>Your Wealthsimple accounts</h2>
+      <p class="small muted">Add each account you hold, for both of you. Holdings, prices and contributions stay on this phone.</p>
+      <div class="grid6">
+        <div class="f s3"><label for="newOwner">Whose</label><select id="newOwner"></select></div>
+        <div class="f s3"><label for="newType">Account type</label><select id="newType"><option value="tfsa">TFSA</option><option value="rrsp">RRSP</option><option value="fhsa">FHSA</option><option value="nonreg">Personal (non-registered)</option></select></div>
+      </div>
+      <div><button class="btn" type="button" id="addAcct2">Add account</button></div>
+    </section>
+    <div id="invMain" class="wrap" hidden>
+      <section class="panel">
+        <div class="panel-head"><span class="label">All accounts</span><span class="small muted" id="invPriceAge"></span></div>
+        <div class="bigv num" id="invTotal">$0</div>
+        <div class="gain" id="invGain"></div>
+        <div class="kv" id="invByPerson"></div>
+        <div class="row-btns"><button class="btn sm" type="button" id="invPricesBtn">Update prices</button><button class="btn ghost sm" type="button" id="invContribBtn">Log contribution</button><button class="btn ghost sm" type="button" id="invAddAcct">Add account</button></div>
+      </section>
+      <div id="invFlags"></div>
+      <div id="invAccts" class="wrap"></div>
+      <section class="panel">
+        <div class="panel-head"><h2>Allocation</h2><button class="btn ghost sm" type="button" id="invTargetsBtn">Set targets</button></div>
+        <div class="alloc" id="invAlloc"></div>
+        <div class="grid6" id="invNextBox">
+          <div class="f s3"><label for="invNext">Next contribution ($)</label><input id="invNext" type="number" inputmode="decimal" min="0" step="50" value="500"></div>
+          <div class="f s3"><label for="invNextAcct">Into</label><select id="invNextAcct"></select></div>
+        </div>
+        <div class="kv" id="invNextOut"></div>
+        <p class="small muted">Buys bring underweight holdings back toward your targets without selling. Targets apply across all accounts combined.</p>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Contribution room</h2><button class="btn ghost sm" type="button" id="invRoomBtn">Update room</button></div>
+        <div id="invRoom"></div>
+        <p class="small muted">Enter each person's room from CRA My Account (or the RRSP limit on your notice of assessment). Contributions logged after that date count against it. TFSA withdrawals only add room back next January. TFSA over-contributions cost 1% a month.</p>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Dividends and distributions</h2><span class="small muted num" id="divYtd"></span></div>
+        <form class="add" id="divForm" autocomplete="off">
+          <div class="f s2"><label for="divAmt">Amount ($)</label><input id="divAmt" type="number" inputmode="decimal" step="0.01" min="0" required></div>
+          <div class="f s2"><label for="divTk">Holding</label><select id="divTk"></select></div>
+          <div class="f s2"><label for="divDate">Date</label><input id="divDate" type="date" required></div>
+          <div class="form-foot"><span class="small muted">For your records. Reinvested dividends are already in the account's value.</span><button class="btn sm" type="submit">Add</button></div>
+        </form>
+        <div class="list" id="divList"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Value over time</h2><span class="small muted">month-end, from your price updates</span></div>
+        <div class="chart" id="invChart"></div>
+      </section>
+    </div>
+  </div>
+
   <!-- YEAR -->
   <div data-panel="year" class="wrap" hidden>
     <section class="panel">
@@ -580,6 +654,14 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:12px}
   </div>
 </div>
 
+<dialog id="formDlg" aria-labelledby="fdTitle">
+  <form method="dialog" id="fdForm" autocomplete="off">
+    <div class="dlg-head"><h2 id="fdTitle"></h2><button class="x" type="button" id="fdClose" aria-label="Close">×</button></div>
+    <div id="fdBody" style="display:flex;flex-direction:column;gap:12px"></div>
+    <p class="small" id="fdMsg" style="color:var(--bad)"></p>
+    <div class="row-btns" style="justify-content:space-between"><button class="btn" type="submit" id="fdSave">Save</button><button class="btn ghost" type="button" id="fdDelete" style="color:var(--bad)" hidden>Remove</button></div>
+  </form>
+</dialog>
 <dialog id="editDlg" aria-labelledby="dlgTitle">
   <form method="dialog" id="editForm" autocomplete="off">
     <div class="dlg-head"><h2 id="dlgTitle">Edit</h2><button class="x" type="button" id="dlgClose" aria-label="Close">×</button></div>
@@ -992,7 +1074,7 @@ const DEFAULTS={
   {id:"simplii",name:"Simplii Visa",base:0.5,rates:{dining:4,groceries:1.5,fuel:1.5,health:1.5,subs:1.5,phone:1.5,utilities:1.5}},
   {id:"rogers",name:"Rogers Red",base:1.5,rates:{}},
   {id:"debit",name:"Debit / e-Transfer",base:0,rates:{}}],
- fees:{}, accounts:[], funds:[], incomeSources:null, jobs:[], roommate:{name:"",amount:0,due:1}};
+ fees:{}, accounts:[], funds:[], incomeSources:null, jobs:[], roommate:{name:"",amount:0,due:1}, invest:{accounts:[],targets:{},room:{},fx:1.38}};
 
 const fmt=new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD"});
 const fmt0=new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0});
@@ -1003,7 +1085,7 @@ const today=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth(
 const sum=(a,f)=>a.reduce((s,x)=>s+(Number(f(x))||0),0);
 
 const S={month:today().slice(0,7),tab:"overview",settings:structuredClone(DEFAULTS),rules:[],
- yearExp:[],yearInc:[],payments:[],stmts:{},bills:[],contribs:[],review:[],log:[],ignored:[],db:null,user:null,profiles:{},unsubYear:null,year:null,
+ yearExp:[],yearInc:[],payments:[],stmts:{},holdings:[],prices:{},divs:[],gains:[],snaps:[],allContribs:[],bills:[],contribs:[],review:[],log:[],ignored:[],db:null,user:null,profiles:{},unsubYear:null,year:null,
  cardTouched:false,drafts:{},busy:false};
 const people=()=>{const p=S.settings.people||["Me","Wife"];return [p[0]||"Me",p[1]||"Wife","Joint"]};
 const monthExp=()=>S.yearExp.filter(e=>e.month===S.month);
@@ -1038,7 +1120,7 @@ function fillDynamic(){
 }
 fillSelect($("exCat"),CATS);fillSelect($("bCat"),CATS);fillSelect($("ruleCat"),[...CATS,["skip","Skip (not spending)"]]);
 fillSelect($("bStart"),MONTHS.map((m,i)=>[String(i+1),m]));
-$("exDate").value=today();$("svDate").value=today();$("inDate").value=today();$("bStart").value=String(new Date().getMonth()+1);
+$("exDate").value=today();$("svDate").value=today();$("inDate").value=today();$("divDate").value=today();$("bStart").value=String(new Date().getMonth()+1);
 fillDynamic();
 
 function suggestCard(){const {card:c,rate:r}=bestCard($("exCat").value);if(!c)return;
@@ -1053,7 +1135,7 @@ suggestCard();
 /* tabs + month */
 function showTab(t){const changed=S.tab!==t;S.tab=t;
  document.querySelectorAll(".tabs [data-tab],#moreSheet [data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
- $("moreBtn").setAttribute("aria-selected",["bills","savings","year","settings"].includes(t));$("moreSheet").hidden=true;
+ $("moreBtn").setAttribute("aria-selected",["invest","bills","savings","year","settings"].includes(t));$("moreSheet").hidden=true;
  $("fab").hidden=t!=="overview";if(changed)window.scrollTo(0,0);
  document.querySelectorAll("[data-panel]").forEach(p=>p.hidden=p.dataset.panel!==t);
  if(t==="settings")renderSettings();try{localStorage.setItem("hl-tab",t)}catch{}}
@@ -1135,7 +1217,7 @@ function render(){
   return `<div class="row"><div class="main"><span class="t">${esc(f.name)}</span><span class="meta">${put>=st.monthly-0.5?'<span class="chip good">Done</span>':`${fmt0.format(put)} so far`}</span></div><span class="num">${fmt0.format(st.monthly)}</span><span></span></div>`}).join("")+
   `<p class="small muted" style="padding-top:8px">Total ${fmt0.format(sum(fs,f=>fundStats(f).monthly))} a month</p>`:'<p class="empty">No sinking funds yet. Add them under Savings.</p>';
  const n=S.review.length;$("revBadge").hidden=!n;$("revBadge").textContent=n;
- renderExpenses();renderIncome();renderImport();renderRoommate();renderSummary();renderCardBills();renderTax();renderEstimate();renderBills();renderSavings();renderYear();
+ renderExpenses();renderIncome();renderImport();renderInvest();renderInvHome();renderRoommate();renderSummary();renderCardBills();renderTax();renderEstimate();renderBills();renderSavings();renderYear();
  if(S.tab==="settings"&&!S.inSettingsEdit&&!document.querySelector('[data-panel="settings"]').contains(document.activeElement))renderSettings();
 }
 
@@ -1504,6 +1586,11 @@ const docs=snap=>snap.docs.map(d=>({id:d.id,...d.data()}));
 function subscribeYear(){if(!S.db)return;const y=S.month.slice(0,4);if(S.year===y)return;S.year=y;S.unsubYear?.();
  S.unsubYear=S.db.collection("expenses").where("month",">=",y+"-01").where("month","<=",y+"-12").onSnapshot(s=>{S.yearExp=docs(s);render()},()=>showBanner("Expenses stopped syncing. Reload the page."));
  if(!S.extrasOn){S.extrasOn=true;
+  S.db.collection("holdings").onSnapshot(s=>{S.holdings=docs(s);renderInvest();renderInvHome()},()=>{});
+  S.db.collection("prices").onSnapshot(s=>{S.prices={};s.docs.forEach(d=>{S.prices[d.id]=d.data()});renderInvest();renderInvHome()},()=>{});
+  S.db.collection("dividends").onSnapshot(s=>{S.divs=docs(s);renderInvest()},()=>{});
+  S.db.collection("gains").onSnapshot(s=>{S.gains=docs(s);renderInvest()},()=>{});
+  S.db.collection("invsnaps").onSnapshot(s=>{S.snaps=docs(s);renderInvest()},()=>{});
   S.db.collection("payments").onSnapshot(s=>{S.payments=docs(s);render()},()=>{});
   S.db.collection("cardstmts").onSnapshot(s=>{S.stmts={};s.docs.forEach(d=>{S.stmts[d.id]=d.data()});render()},()=>{});}
  S.unsubInc?.();S.unsubInc=S.db.collection("income").where("month",">=",y+"-01").where("month","<=",y+"-12").onSnapshot(s=>{S.yearInc=docs(s);render()},()=>{})}
@@ -1745,6 +1832,213 @@ $("sumShare").addEventListener("click",async()=>{const text=summaryLines(summary
  try{if(navigator.share){await navigator.share({text});return}}catch(e){if(e&&e.name==="AbortError")return}
  try{await navigator.clipboard.writeText(text);$("sumMsg").textContent="Copied. Paste it in WhatsApp or a note."}catch{$("sumMsg").textContent="Couldn't share from here."}});
 
+
+/* ================= investments (Wealthsimple accounts, prices entered by hand) ================= */
+const INV_TYPES={tfsa:"TFSA",rrsp:"RRSP",fhsa:"FHSA",nonreg:"Personal"};
+const INV_CA=["TSX","TSXV","NEO","CSE"];
+const invCfg=()=>{const v=S.settings.invest||{};v.accounts=v.accounts||[];v.targets=v.targets||{};v.room=v.room||{};if(!v.fx)v.fx=1.38;S.settings.invest=v;return v};
+const invAcctName=a=>`${a.owner} · ${INV_TYPES[a.type]||a.type}`;
+const isUS=h=>h.ex&&!INV_CA.includes(h.ex);
+const priceOf=tk=>S.prices[tk]?.price;
+function holdVal(h){const p=priceOf(h.ticker);if(p==null)return null;return (Number(h.units)||0)*p*(isUS(h)?invCfg().fx:1)}
+function acctStats(a){
+ const hs=S.holdings.filter(h=>h.acct===a.id);let value=Number(a.cash)||0,book=0,missing=0;
+ hs.forEach(h=>{const v=holdVal(h);if(v==null)missing++;else value+=v;book+=Number(h.book)||0});
+ return {hs,value,book:book+(Number(a.cash)||0),missing,gain:value-(book+(Number(a.cash)||0))}}
+function invTotals(){const cfg=invCfg();let value=0,book=0;const byP={};
+ cfg.accounts.forEach(a=>{const st=acctStats(a);value+=st.value;book+=st.book;byP[a.owner]=(byP[a.owner]||0)+st.value});return {value,book,byP}}
+/* money-weighted return: start value + contributions in, withdrawals out, today's value */
+function xirr(flows){if(flows.length<2)return null;const t0=new Date(flows[0].d+"T12:00");
+ const f=r=>flows.reduce((s,x)=>s+x.v/Math.pow(1+r,(new Date(x.d+"T12:00")-t0)/31557600000),0);
+ let lo=-0.99,hi=10,flo=f(lo),fhi=f(hi);if(flo*fhi>0)return null;
+ for(let i=0;i<100;i++){const mid=(lo+hi)/2,fm=f(mid);if(Math.abs(fm)<1e-6)return mid;if(flo*fm<0){hi=mid;fhi=fm}else{lo=mid;flo=fm}}return (lo+hi)/2}
+function acctReturn(a,value){
+ const flows=[];if(a.startValue&&a.startDate)flows.push({d:a.startDate,v:-Number(a.startValue)});
+ S.allContribs.filter(c=>c.invAcct===a.id).sort((x,y)=>x.date.localeCompare(y.date)).forEach(c=>flows.push({d:c.date,v:-Number(c.amount)}));
+ if(!flows.length)return null;flows.sort((x,y)=>x.d.localeCompare(y.d));
+ const span=dayDiff(today(),flows[0].d);if(span<45)return null;flows.push({d:today(),v:value});return xirr(flows)}
+const pct=v=>(v>=0?"+":"")+(v*100).toFixed(1)+"%";
+const gainHtml=(g,base)=>`<span class="gain ${g>=0?"up":"down"}">${g>=0?"+":"−"}${fmt0.format(Math.abs(g))}${base?` (${pct(g/base)})`:""}</span>`;
+
+function renderInvHome(){
+ const cfg=invCfg(),el=$("invHome");if(!el)return;el.hidden=!cfg.accounts.length;if(!cfg.accounts.length)return;
+ const t=invTotals();$("invHomeV").textContent=fmt0.format(t.value);$("invHomeG").innerHTML=t.book?gainHtml(t.value-t.book,t.book):"";
+ const age=priceAgeDays();$("invHomeSub").textContent=`${cfg.accounts.length} account${cfg.accounts.length>1?"s":""}${age!=null&&age>30?` · prices ${age} days old`:""}`;
+}
+function priceAgeDays(){const ds=Object.values(S.prices).map(p=>p.date).filter(Boolean).sort();if(!ds.length)return null;return Math.floor(dayDiff(today(),ds[0]))}
+
+function renderInvest(){
+ const cfg=invCfg();if(!$("invMain"))return;
+ const has=cfg.accounts.length>0;$("invEmpty").hidden=has;$("invMain").hidden=!has;
+ const owners=people().slice(0,2);fillSelect($("newOwner"),owners.map(p=>[p,p]),true);
+ if(!has)return;
+ const t=invTotals();$("invTotal").textContent=fmt0.format(t.value);$("invGain").innerHTML=t.book?gainHtml(t.value-t.book,t.book)+' <span class="small muted">since you bought</span>':"";
+ $("invByPerson").innerHTML=Object.entries(t.byP).map(([p,v])=>`<span>${esc(p)}</span><span class="num">${fmt0.format(v)}</span>`).join("");
+ const age=priceAgeDays();$("invPriceAge").textContent=age==null?"No prices yet":age===0?"Prices updated today":`Oldest price ${age} day${age>1?"s":""} old`;
+ // flags: US holdings where withholding tax isn't recoverable, missing prices, room
+ const flags=[];
+ cfg.accounts.forEach(a=>{S.holdings.filter(h=>h.acct===a.id&&isUS(h)&&(a.type==="tfsa"||a.type==="fhsa")).forEach(h=>flags.push(`<b>${esc(h.ticker)}</b> in ${esc(invAcctName(a))} is US-listed. If it pays dividends, the 15% US withholding tax can't be recovered in a ${INV_TYPES[a.type]}. In an RRSP it's exempt under the tax treaty.`))});
+ const noPrice=[...new Set(S.holdings.filter(h=>priceOf(h.ticker)==null).map(h=>h.ticker))];
+ if(noPrice.length)flags.push(`No price yet for ${noPrice.map(esc).join(", ")}. Tap Update prices.`);
+ roomStates().filter(r=>r.left<0).forEach(r=>flags.push(`${INV_TYPES[r.type]} contributions for ${esc(r.p)} are ${fmt0.format(-r.left)} over the room you entered. Withdrawing the extra soon limits the 1%-a-month penalty.`));
+ $("invFlags").innerHTML=flags.map(f=>`<p class="flag">${f}</p>`).join("");
+ // accounts
+ $("invAccts").innerHTML=cfg.accounts.map(a=>{const st=acctStats(a);const r=acctReturn(a,st.value);
+  return `<section class="acct panel" data-acct="${esc(a.id)}"><div class="acct-head"><div><h2>${esc(invAcctName(a))}</h2><p class="small muted">${r!=null?`${pct(r)} a year, counting when money went in`:"Wealthsimple"}${a.cash?` · cash ${fmt0.format(a.cash)}`:""}</p></div>
+   <div><div class="v num">${fmt0.format(st.value)}</div>${st.book?`<div style="text-align:right">${gainHtml(st.gain,st.book)}</div>`:""}</div></div>
+   <div>${st.hs.length?st.hs.sort((x,y)=>(holdVal(y)||0)-(holdVal(x)||0)).map(h=>{const v=holdVal(h);const g=v!=null?v-(Number(h.book)||0):null;
+    return `<div class="hold" data-hold="${esc(h.id)}"><div><div class="tk">${esc(h.ticker)}${isUS(h)?' <span class="chip est">USD</span>':""}</div><div class="sub">${Number(h.units)} units${priceOf(h.ticker)!=null?` at ${isUS(h)?"US":""}${fmt.format(priceOf(h.ticker))}`:""}</div></div>
+     <div class="num" style="text-align:right">${v!=null?fmt0.format(v):"–"}</div><div style="text-align:right;min-width:4.5em">${g!=null&&h.book?gainHtml(g,h.book):""}</div></div>`}).join(""):'<p class="empty">No holdings yet.</p>'}</div>
+   <div class="row-btns"><button class="btn ghost sm" type="button" data-addhold>Add holding</button><button class="btn ghost sm" type="button" data-editacct>Edit account</button></div></section>`}).join("");
+ // allocation
+ const val={};S.holdings.forEach(h=>{const v=holdVal(h);if(v!=null)val[h.ticker]=(val[h.ticker]||0)+v});
+ const tks=[...new Set([...Object.keys(val),...Object.keys(cfg.targets).filter(k=>cfg.targets[k]>0)])];
+ const hv=sum(Object.values(val),v=>v)||0;const hasT=sum(Object.values(cfg.targets),v=>Number(v)||0)>0;
+ $("invAlloc").innerHTML=tks.length?`<span class="h">Holding</span><span class="h num">Now</span><span class="h num">Target</span><span class="h num">Drift</span>`+tks.sort((a,b)=>(val[b]||0)-(val[a]||0)).map(k=>{const now=hv?(val[k]||0)/hv:0,tg=(Number(cfg.targets[k])||0)/100,d=now-tg;
+  return `<span>${esc(k)}</span><span class="num">${(now*100).toFixed(1)}%</span><span class="num">${hasT?(tg*100).toFixed(1)+"%":"–"}</span><span class="num" style="color:${!hasT?"":Math.abs(d)>0.05?"var(--warn)":"var(--muted)"}">${hasT?(d>=0?"+":"")+(d*100).toFixed(1):"–"}</span>
+  <div class="bar2"><i style="width:${Math.min(100,now*100)}%"></i>${hasT?`<b style="left:calc(${Math.min(100,tg*100)}% - 1px)"></b>`:""}</div>`}).join(""):'<p class="empty" style="grid-column:1/-1">Add holdings and prices to see your mix.</p>';
+ $("invNextBox").hidden=!hasT;
+ fillSelect($("invNextAcct"),cfg.accounts.map(a=>[a.id,invAcctName(a)]),true);
+ renderNext(val,hv);
+ // room
+ $("invRoom").innerHTML=roomStates().map(r=>`<div class="cat"><span>${esc(r.p)} · ${INV_TYPES[r.type]} <span class="small muted">· as of ${niceDate(r.asOf)}</span></span><span class="num small">${r.left<0?'<span style="color:var(--bad)">over by '+fmt0.format(-r.left)+"</span>":fmt0.format(r.left)+" left"}</span>
+  <div class="bar"><i style="width:${r.room?Math.min(100,Math.max(0,(r.room-r.left)/r.room*100)):0}%;background:${r.left<0?"var(--bad)":"var(--accent)"}"></i></div></div>`).join("")||'<p class="empty">Tap Update room to enter each person\'s TFSA, RRSP and FHSA room.</p>';
+ // dividends
+ fillSelect($("divTk"),[...new Set(S.holdings.map(h=>h.acct+"|"+h.ticker))].map(k=>{const [ac,tk]=k.split("|");const a=cfg.accounts.find(x=>x.id===ac);return [k,`${tk} · ${a?invAcctName(a):""}`]}),true);
+ const yr=today().slice(0,4);const dy=S.divs.filter(d=>(d.date||"").startsWith(yr));
+ $("divYtd").textContent=dy.length?`${fmt.format(sum(dy,d=>d.amount))} in ${yr}`:"";
+ $("divList").innerHTML=[...S.divs].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,8).map(d=>{const a=cfg.accounts.find(x=>x.id===d.acct);
+  return `<div class="row"><div class="main"><span class="t">${esc(d.ticker)}</span><span class="meta">${esc(d.date)}${a?" · "+esc(invAcctName(a)):""}</span></div><span class="num" style="color:var(--good)">+${fmt.format(d.amount)}</span><button class="x" data-del="dividends/${esc(d.id)}" aria-label="Delete">×</button></div>`}).join("");
+ renderInvChart();
+}
+function renderNext(val,hv){
+ const cfg=invCfg();const C=Number($("invNext").value)||0;const out=$("invNextOut");
+ const w=Object.fromEntries(Object.entries(cfg.targets).map(([k,v])=>[k,(Number(v)||0)/100]).filter(([,v])=>v>0));
+ const tw=sum(Object.values(w),v=>v);if(!C||!tw){out.innerHTML="";return}
+ const total=hv+C;const def={};let dsum=0;Object.keys(w).forEach(k=>{def[k]=Math.max(0,total*w[k]/tw-(val[k]||0));dsum+=def[k]});
+ const buy={};Object.keys(w).forEach(k=>{buy[k]=dsum>C?def[k]/dsum*C:def[k]+(C-dsum)*w[k]/tw});
+ const acct=cfg.accounts.find(a=>a.id===$("invNextAcct").value);
+ out.innerHTML=Object.entries(buy).filter(([,v])=>v>=1).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const p=priceOf(k);const h=S.holdings.find(x=>x.ticker===k);const fx=h&&isUS(h)?cfg.fx:1;
+  return `<span>Buy ${esc(k)}</span><span class="num">${fmt0.format(v)}${p?` <span class="small muted">≈ ${(v/(p*fx)).toFixed(v/(p*fx)<10?2:0)} units</span>`:""}</span>`}).join("")+
+  (acct&&(acct.type==="tfsa"||acct.type==="fhsa")?Object.keys(buy).filter(k=>{const h=S.holdings.find(x=>x.ticker===k);return h&&isUS(h)&&buy[k]>=1}).map(k=>`<span class="small" style="grid-column:1/-1;color:var(--warn)">${esc(k)} is US-listed; buying it in the RRSP avoids US withholding tax on dividends.</span>`).join(""):"");
+}
+function roomStates(){const cfg=invCfg();const out=[];
+ Object.entries(cfg.room).forEach(([p,types])=>Object.entries(types||{}).forEach(([type,r])=>{if(!r||r.amount==null||r.amount==="")return;
+  const used=sum(S.allContribs.filter(c=>{const a=cfg.accounts.find(x=>x.id===c.invAcct);return a&&a.owner===p&&a.type===type&&c.date>=r.asOf&&c.amount>0}),c=>c.amount);
+  out.push({p,type,room:Number(r.amount),asOf:r.asOf,left:Number(r.amount)-used})}));return out}
+function renderInvChart(){
+ const pts=[...S.snaps].sort((a,b)=>a.id.localeCompare(b.id)).slice(-24);const el=$("invChart");
+ if(pts.length<2){el.innerHTML='<p class="empty">Shows up after prices are updated in two different months.</p>';return}
+ const W=640,H=200,L=52,R=10,T=10,B=24;const vals=pts.map(p=>p.value),books=pts.map(p=>p.book||0);
+ const max=Math.max(...vals,...books)*1.05,min=Math.min(...vals,...books)*0.95;const x=i=>L+i*(W-L-R)/(pts.length-1),y=v=>T+(H-T-B)*(1-(v-min)/(max-min||1));
+ let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Investment value by month">`;
+ [min,(min+max)/2,max].forEach(v=>{svg+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">$${(v/1000).toFixed(v>=10000?0:1)}k</text>`});
+ svg+=`<path d="M${pts.map((p,i)=>x(i)+","+y(p.value)).join(" L")} L${x(pts.length-1)},${H-B} L${x(0)},${H-B}Z" fill="var(--accent-soft)"/>`;
+ svg+=`<polyline points="${pts.map((p,i)=>x(i)+","+y(p.book||0)).join(" ")}" fill="none" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1.5"/>`;
+ svg+=`<polyline points="${pts.map((p,i)=>x(i)+","+y(p.value)).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+ svg+=`<circle cx="${x(pts.length-1)}" cy="${y(vals[vals.length-1])}" r="4" fill="var(--accent)"/>`;
+ pts.forEach((p,i)=>{if(pts.length<=12||i%2===0)svg+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${MONTHS[Number(p.id.slice(5))-1].slice(0,1)}</text>`});
+ el.innerHTML=svg+'</svg><div class="legend"><span><i style="background:var(--accent)"></i>Value</span><span>– – what you paid</span></div>';
+}
+async function snapshotInvest(){const t=invTotals();const m=today().slice(0,7);
+ const cur=S.snaps.find(x=>x.id===m);if(cur&&Math.abs(cur.value-t.value)<1&&Math.abs((cur.book||0)-t.book)<1)return;
+ try{await S.db.doc("invsnaps/"+m).set({value:Math.round(t.value),book:Math.round(t.book),ts:Date.now()})}catch{}}
+
+/* ---- small form dialog ---- */
+const FD={onSave:null,onDelete:null};
+function openForm(title,html,onSave,onDelete){$("fdBody").oninput=null;$("fdTitle").textContent=title;$("fdBody").innerHTML=html;$("fdMsg").textContent="";FD.onSave=onSave;FD.onDelete=onDelete;
+ $("fdDelete").hidden=!onDelete;$("fdDelete").textContent="Remove";delete $("fdDelete").dataset.armed;$("formDlg").showModal();setTimeout(()=>$("fdBody").querySelector("input,select")?.focus(),50)}
+$("fdClose").addEventListener("click",()=>$("formDlg").close());
+$("fdForm").addEventListener("submit",async e=>{e.preventDefault();try{const r=await FD.onSave?.();if(r===false)return;$("formDlg").close()}catch(err){$("fdMsg").textContent=err.message||String(err)}});
+$("fdDelete").addEventListener("click",async()=>{const b=$("fdDelete");if(!b.dataset.armed){b.dataset.armed="1";b.textContent="Tap again to remove";return}try{await FD.onDelete?.();$("formDlg").close()}catch(err){$("fdMsg").textContent=err.message}});
+const fv=id=>document.getElementById(id)?.value;
+const optHtml=(pairs,v)=>pairs.map(([k,l])=>`<option value="${esc(k)}"${String(k)===String(v)?" selected":""}>${esc(l)}</option>`).join("");
+
+/* accounts */
+function newAcct(owner,type){const cfg=invCfg();cfg.accounts.push({id:"a"+Date.now().toString(36),owner,type,cash:0});saveSettings();renderInvest();renderInvHome()}
+$("addAcct2").addEventListener("click",()=>newAcct($("newOwner").value||people()[0],$("newType").value));
+$("invAddAcct").addEventListener("click",()=>openForm("Add account",`<div class="grid6"><div class="f s3"><label for="na-o">Whose</label><select id="na-o">${optHtml(people().slice(0,2).map(p=>[p,p]),people()[0])}</select></div>
+ <div class="f s3"><label for="na-t">Type</label><select id="na-t">${optHtml(Object.entries(INV_TYPES))}</select></div></div>`,()=>newAcct(fv("na-o"),fv("na-t"))));
+function editAcct(id){const cfg=invCfg();const a=cfg.accounts.find(x=>x.id===id);if(!a)return;
+ openForm("Edit "+invAcctName(a),`<div class="grid6"><div class="f s3"><label for="ea-o">Whose</label><select id="ea-o">${optHtml(people().slice(0,2).map(p=>[p,p]),a.owner)}</select></div>
+  <div class="f s3"><label for="ea-t">Type</label><select id="ea-t">${optHtml(Object.entries(INV_TYPES),a.type)}</select></div>
+  <div class="f s6"><label for="ea-c">Cash not invested ($)</label><input id="ea-c" type="number" inputmode="decimal" step="0.01" value="${a.cash||""}"></div>
+  <div class="f s3"><label for="ea-sv">Value when you started tracking ($)</label><input id="ea-sv" type="number" inputmode="decimal" step="0.01" value="${a.startValue||""}"></div>
+  <div class="f s3"><label for="ea-sd">On</label><input id="ea-sd" type="date" value="${a.startDate||today()}"></div></div>
+  <p class="small muted">The starting value plus contributions you log is used to work out the yearly return.</p>`,
+  ()=>{a.owner=fv("ea-o");a.type=fv("ea-t");a.cash=Number(fv("ea-c"))||0;a.startValue=Number(fv("ea-sv"))||0;a.startDate=fv("ea-sd")||null;saveSettings();renderInvest();renderInvHome();snapshotInvest()},
+  async()=>{if(S.holdings.some(h=>h.acct===id))throw new Error("Remove its holdings first.");cfg.accounts=cfg.accounts.filter(x=>x.id!==id);saveSettings();renderInvest();renderInvHome()})}
+/* holdings */
+function holdForm(acctId,h){const a=invCfg().accounts.find(x=>x.id===acctId);const isNew=!h;h=h||{ticker:"",ex:"TSX",units:"",book:""};
+ const nonreg=a&&a.type==="nonreg";
+ openForm(isNew?"Add holding to "+invAcctName(a):`${h.ticker} in ${invAcctName(a)}`,`<div class="grid6">
+  <div class="f s3"><label for="hf-t">Ticker</label><input id="hf-t" type="text" maxlength="12" value="${esc(h.ticker)}" placeholder="XEQT" style="text-transform:uppercase"></div>
+  <div class="f s3"><label for="hf-x">Exchange</label><select id="hf-x">${optHtml([["TSX","TSX (Canada)"],["TSXV","TSX Venture"],["NEO","Cboe Canada (NEO)"],["NYSE","NYSE (US)"],["NASDAQ","Nasdaq (US)"]],h.ex||"TSX")}</select></div>
+  <div class="f s3"><label for="hf-u">Units</label><input id="hf-u" type="number" inputmode="decimal" step="any" min="0" value="${h.units}"></div>
+  <div class="f s3"><label for="hf-b">Total book cost (CAD)</label><input id="hf-b" type="number" inputmode="decimal" step="0.01" min="0" value="${h.book}"></div>
+  ${isNew?"":`<div class="f s6"><label>Record a trade</label><div class="grid6">
+   <div class="f s2"><select id="hf-tt" aria-label="Trade type"><option value="buy">Bought</option><option value="sell">Sold</option></select></div>
+   <div class="f s2"><input id="hf-tu" type="number" inputmode="decimal" step="any" min="0" placeholder="Units" aria-label="Units traded"></div>
+   <div class="f s2"><input id="hf-ta" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Total $ (CAD)" aria-label="Total amount in CAD"></div>
+   <div class="f s6"><select id="hf-cash" aria-label="Cash in the account"><option value="1">Paid from / added to the account's cash</option><option value="0">Don't change the account's cash</option></select></div></div>
+   <p class="small muted" style="margin-top:6px">Updates units and book cost for you${nonreg?", and records the capital gain for tax":""}. Book cost uses the average cost method.</p></div>`}
+  </div>`,async()=>{
+   const ticker=(fv("hf-t")||"").trim().toUpperCase().replace(/\s+/g,"");if(!ticker)throw new Error("Enter a ticker.");
+   let units=Number(fv("hf-u"))||0,book=Number(fv("hf-b"))||0;
+   const tu=Number(fv("hf-tu"))||0,ta=Number(fv("hf-ta"))||0;
+   const cfgA=invCfg().accounts.find(x=>x.id===acctId);
+   if(!isNew&&tu>0){if(fv("hf-tt")==="buy"){units+=tu;book+=ta;if(cfgA&&fv("hf-cash")==="1"){cfgA.cash=Math.max(0,Math.round(((Number(cfgA.cash)||0)-ta)*100)/100);saveSettings()}}else{if(cfgA&&fv("hf-cash")==="1"){cfgA.cash=Math.round(((Number(cfgA.cash)||0)+ta)*100)/100;saveSettings()}if(tu>units+1e-9)throw new Error("You can't sell more units than you hold.");
+    const acb=units?book/units*tu:0;if(nonreg)await S.db.collection("gains").add({acct:acctId,ticker,units:tu,proceeds:ta,acb:Math.round(acb*100)/100,gain:Math.round((ta-acb)*100)/100,date:today(),ts:Date.now()});
+    units-=tu;book-=acb}}
+   const body={acct:acctId,ticker,ex:fv("hf-x"),units:Math.round(units*1e6)/1e6,book:Math.round(book*100)/100,ts:Date.now()};
+   if(isNew)await S.db.collection("holdings").add(body);else await S.db.doc("holdings/"+h.id).set(body);snapshotInvest()},
+  isNew?null:async()=>{await S.db.doc("holdings/"+h.id).delete();snapshotInvest()})}
+$("invAccts").addEventListener("click",e=>{const box=e.target.closest("[data-acct]");if(!box)return;const id=box.dataset.acct;
+ if(e.target.closest("[data-addhold]"))return holdForm(id,null);if(e.target.closest("[data-editacct]"))return editAcct(id);
+ const hr=e.target.closest("[data-hold]");if(hr){const h=S.holdings.find(x=>x.id===hr.dataset.hold);if(h)holdForm(id,h)}});
+/* prices */
+$("invPricesBtn").addEventListener("click",()=>{const cfg=invCfg();const tks=[...new Map(S.holdings.map(h=>[h.ticker,h])).values()].sort((a,b)=>a.ticker.localeCompare(b.ticker));
+ if(!tks.length){openForm("Update prices",'<p class="muted">Add a holding first.</p>',()=>{});return}
+ openForm("Update prices",tks.map((h,i)=>`<div class="price-row"><label for="pr-${i}" style="font-size:.95rem;color:var(--ink);font-weight:550">${esc(h.ticker)} <span class="small muted">${isUS(h)?"USD":"CAD"}${S.prices[h.ticker]?.date?" · "+niceDate(S.prices[h.ticker].date):""}</span></label>
+  <input id="pr-${i}" data-tk="${esc(h.ticker)}" type="number" inputmode="decimal" step="0.01" min="0" value="${S.prices[h.ticker]?.price??""}"></div>`).join("")+
+  (tks.some(isUS)?`<div class="price-row"><label for="pr-fx" style="font-size:.95rem;color:var(--ink);font-weight:550">USD → CAD rate</label><input id="pr-fx" type="number" inputmode="decimal" step="0.0001" min="0" value="${cfg.fx}"></div>`:"")+
+  '<p class="small muted">Use the prices shown in Wealthsimple. Only the ones you change get today\'s date.</p>',
+  async()=>{const d=today();for(const inp of $("fdBody").querySelectorAll("[data-tk]")){const v=Number(inp.value);const tk=inp.dataset.tk;if(!(v>0))continue;
+   if(S.prices[tk]?.price!==v)await S.db.doc("prices/"+tk).set({price:v,date:d})}
+   const fx=Number(fv("pr-fx"));if(fx>0&&fx!==cfg.fx){cfg.fx=fx;saveSettings()}setTimeout(snapshotInvest,50)})});
+/* contributions (also counted as savings on the Savings tab) */
+$("invContribBtn").addEventListener("click",()=>{const cfg=invCfg();
+ openForm("Log contribution",`<div class="grid6"><div class="f s6"><label for="ic-a">Account</label><select id="ic-a">${optHtml(cfg.accounts.map(a=>[a.id,invAcctName(a)]))}</select></div>
+  <div class="f s3"><label for="ic-k">Type</label><select id="ic-k"><option value="in">Contribution</option><option value="out">Withdrawal</option></select></div>
+  <div class="f s3"><label for="ic-d">Date</label><input id="ic-d" type="date" value="${today()}"></div>
+  <div class="f s6"><label for="ic-v">Amount ($)</label><input id="ic-v" type="number" inputmode="decimal" step="0.01" min="0"></div></div><p class="small muted">The amount is added to the account's cash until you record a buy.</p><p class="small" id="ic-warn" style="color:var(--warn)"></p>`,
+  async()=>{const a=cfg.accounts.find(x=>x.id===fv("ic-a"));const v=Number(fv("ic-v"))||0;if(!a||!(v>0))throw new Error("Enter an amount.");
+   const amount=fv("ic-k")==="out"?-v:v;
+   if(amount>0){const r=roomStates().find(x=>x.p===a.owner&&x.type===a.type);const w=$("ic-warn");
+    if(r&&amount>r.left+0.005&&!w.dataset.ok){w.dataset.ok="1";w.textContent=`That's ${fmt0.format(amount-Math.max(0,r.left))} more than the ${fmt0.format(Math.max(0,r.left))} room left. Tap Save again to log it anyway.`;return false}}
+   const key=a.type==="nonreg"?null:a.type;const date=fv("ic-d")||today();
+   await S.db.collection("contribs").add({account:key||"invest",amount,date,month:date.slice(0,7),invAcct:a.id,who:a.owner,ts:Date.now()});
+   a.cash=Math.max(0,Math.round(((Number(a.cash)||0)+amount)*100)/100);saveSettings();renderInvest();renderInvHome();snapshotInvest()})});
+/* room */
+$("invRoomBtn").addEventListener("click",()=>{const cfg=invCfg();const ps=people().slice(0,2);let h="";
+ ps.forEach((p,pi)=>{h+=`<h3>${esc(p)}</h3><div class="grid6">`+["tfsa","rrsp","fhsa"].map(t=>{const r=cfg.room[p]?.[t]||{};return `<div class="f s3"><label for="rm-${pi}-${t}">${INV_TYPES[t]} room ($)</label><input id="rm-${pi}-${t}" type="number" inputmode="decimal" step="1" min="0" value="${r.amount??""}" placeholder="Not tracked"></div>
+  <div class="f s3"><label for="rd-${pi}-${t}">As of</label><input id="rd-${pi}-${t}" type="date" value="${r.asOf||today().slice(0,4)+"-01-01"}"></div>`}).join("")+`</div>`});
+ openForm("Contribution room",h+'<p class="small muted">Leave a box empty to stop tracking that account.</p>',()=>{ps.forEach((p,pi)=>{cfg.room[p]=cfg.room[p]||{};["tfsa","rrsp","fhsa"].forEach(t=>{const v=fv(`rm-${pi}-${t}`);
+  if(v===""||v==null)delete cfg.room[p][t];else cfg.room[p][t]={amount:Number(v),asOf:fv(`rd-${pi}-${t}`)||today()}})});saveSettings();renderInvest()})});
+/* targets */
+$("invTargetsBtn").addEventListener("click",()=>{const cfg=invCfg();const tks=[...new Set([...S.holdings.map(h=>h.ticker),...Object.keys(cfg.targets)])].sort();
+ openForm("Target mix",(tks.length?tks.map((k,i)=>`<div class="price-row"><label for="tg-${i}" style="font-size:.95rem;color:var(--ink);font-weight:550">${esc(k)}</label><input id="tg-${i}" data-tk="${esc(k)}" type="number" inputmode="decimal" step="0.5" min="0" max="100" value="${cfg.targets[k]??""}" placeholder="%"></div>`).join(""):"")+
+  `<div class="price-row"><input id="tg-new" type="text" maxlength="12" placeholder="Add a ticker you don't hold yet" style="text-transform:uppercase"><input id="tg-newv" type="number" inputmode="decimal" step="0.5" min="0" max="100" placeholder="%"></div><p class="small" id="tg-sum"></p>`,
+  ()=>{const t={};$("fdBody").querySelectorAll("[data-tk]").forEach(i=>{const v=Number(i.value);if(v>0)t[i.dataset.tk]=v});const nk=(fv("tg-new")||"").trim().toUpperCase(),nv=Number(fv("tg-newv"));if(nk&&nv>0)t[nk]=nv;
+   const tot=sum(Object.values(t),v=>v);if(tot&&Math.abs(tot-100)>0.5){$("tg-sum").textContent=`Targets add up to ${tot}%. Make them total 100%.`;return false}
+   cfg.targets=t;saveSettings();renderInvest()});
+ const upd=()=>{let t=0;$("fdBody").querySelectorAll("[data-tk],#tg-newv").forEach(i=>t+=Number(i.value)||0);$("tg-sum").textContent=`Total ${t}%`;$("tg-sum").style.color=Math.abs(t-100)<0.5?"var(--good)":"var(--muted)"};
+ $("fdBody").oninput=upd;upd()});
+["invNext","invNextAcct"].forEach(id=>$(id).addEventListener("input",()=>renderInvest()));
+$("divForm").addEventListener("submit",async e=>{e.preventDefault();const [acct,ticker]=($("divTk").value||"").split("|");const amount=Number($("divAmt").value)||0;if(!ticker||!(amount>0))return;
+ const date=$("divDate").value||today();try{await S.db.collection("dividends").add({acct,ticker,amount,date,month:date.slice(0,7),ts:Date.now()});$("divAmt").value=""}catch(err){showBanner(writeErr(err))}});
+$("invHome").addEventListener("click",()=>showTab("invest"));
+
 /* ---------- this phone, AI, sync ---------- */
 $("thisPhone").addEventListener("change",e=>{try{localStorage.setItem("hl-phone",e.target.value)}catch{};$("exWho").value=e.target.value||"Joint"});
 $("aiOn").addEventListener("change",async e=>{try{localStorage.setItem("hl-ai",e.target.checked?"1":"0")}catch{}
@@ -1794,7 +2088,7 @@ const SEED={"rulesV":2,"newRules":[{"kw":"SUPER C ","cat":"groceries"},{"kw":"KA
  db.doc("settings/rules").onSnapshot(s=>{S.rules=s.exists?(s.data().rules||[]):[];if(S.tab==="settings")renderRules()});
  db.doc("imports/ignored").onSnapshot(s=>{S.ignored=s.exists?(s.data().ids||[]):[]});
  db.collection("bills").onSnapshot(s=>{S.bills=docs(s);render()});
- db.collection("contribs").onSnapshot(s=>{S.contribs=docs(s);render()});
+ db.collection("contribs").onSnapshot(s=>{S.contribs=docs(s);S.allContribs=S.contribs;render()});
  db.collection("review").onSnapshot(s=>{S.review=docs(s);render();aiRunReview()});
  db.collection("importlog").orderBy("ts","desc").limit(10).onSnapshot(s=>{S.log=docs(s);renderImport()});
  subscribeYear();showPending();if(pendingCsv())showTab("import");

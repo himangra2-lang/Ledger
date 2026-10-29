@@ -77,7 +77,16 @@ What's in this folder
   Month summary (Overview): income, spending, budget, top categories, biggest
     purchases, change vs last month, rewards, roommate rent, tax. Share sends it as text.
 
-8. PDF STATEMENTS
+8. INVESTMENTS (More > Invest)
+  Add each Wealthsimple account (whose, TFSA / RRSP / FHSA / Personal), then its
+  holdings: ticker, exchange, units, total book cost. Tap Update prices and type the
+  prices shown in Wealthsimple (plus the USD rate if you hold US stocks).
+  Log contribution adds money to the account's cash (and to Savings); Record a trade
+  on a holding updates units, book cost and cash, and records capital gains for
+  Personal accounts. Set targets to see drift and where your next contribution should
+  go. Update room with figures from CRA My Account to get over-contribution warnings.
+
+9. PDF STATEMENTS
   In the Ledger's Import tab tap "Only have a PDF statement? Convert it first"
   (or open .../convert.html). Pick the PDF, check the rows (untick anything wrong,
   tap the swap arrows if money in/out is reversed), then tap Send to Ledger import
@@ -85,7 +94,7 @@ What's in this folder
   Works with PDFs downloaded from online banking. Scanned or photographed statements
   have no text to read.
 
-9. UPDATING THE APP LATER
+10. UPDATING THE APP LATER
   Upload the new or changed files to the same GitHub repository (Add file > Upload
   files; files with the same name are replaced).
   Phones pick it up the next time they open the app online. Your data isn't touched.
