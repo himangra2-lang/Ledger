@@ -51,7 +51,33 @@ What's in this folder
   Rows the rules don't recognise go to "Needs a category" (with an AI suggestion
   if it's on). Save them once with "Remember" ticked and they're automatic next time.
 
-6. PDF STATEMENTS
+6. INCOME (PAYCHEQUES, ROOMMATE RENT)
+  Income tab: add each paycheque (take-home amount) and your roommate's rent as they
+  arrive. Settings > Income sources lets you rename or add sources.
+  Importing a chequing statement puts deposits under Import > To check: mark them as
+  pay or rent once (keep Remember ticked) and they're recognised automatically after.
+  If you import bank statements, don't also type the same paycheque by hand.
+
+7. MORE TOOLS
+  Edit or split: tap any expense or income entry. Split turns one purchase into parts
+    (e.g. a Walmart run into groceries + household).
+  Find (Expenses tab): search by merchant/note and filter by category, card, person,
+    this month / this year / everything.
+  Duplicates: the app warns before you add a matching amount within a few days, and an
+    import links to entries you'd already typed instead of adding them twice.
+  Paycheque estimate (Income tab): add jobs in Settings > Jobs (hourly rate, pay
+    frequency, pension/dues per pay), enter hours, get estimated take-home.
+  Tax time (Income tab): fill in gross pay and income tax from each pay stub to see if
+    you're on track to owe or get a refund, and how much to set aside monthly.
+  Roommate rent: set name, amount and due day in Settings > Roommate. Overview shows
+    paid / late with a one-tap "Mark received".
+  Credit card bills (More > Bills and cards): set statement and due days per card in Settings > Cards.
+    Shows statement amount, payments, what's left and when it's due. Card payments in
+    imported card statements are recorded automatically.
+  Month summary (Overview): income, spending, budget, top categories, biggest
+    purchases, change vs last month, rewards, roommate rent, tax. Share sends it as text.
+
+8. PDF STATEMENTS
   In the Ledger's Import tab tap "Only have a PDF statement? Convert it first"
   (or open .../convert.html). Pick the PDF, check the rows (untick anything wrong,
   tap the swap arrows if money in/out is reversed), then tap Send to Ledger import
@@ -59,7 +85,7 @@ What's in this folder
   Works with PDFs downloaded from online banking. Scanned or photographed statements
   have no text to read.
 
-7. UPDATING THE APP LATER
+9. UPDATING THE APP LATER
   Upload the new or changed files to the same GitHub repository (Add file > Upload
   files; files with the same name are replaced).
   Phones pick it up the next time they open the app online. Your data isn't touched.
