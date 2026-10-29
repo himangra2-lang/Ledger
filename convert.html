@@ -230,7 +230,10 @@ var StmtCore = (function () {
     var j = w.length, amts = [];
     while (j > i && amts.length < 4 && isMoney(w[j - 1].t)) { amts.unshift({ v: moneyVal(w[j - 1].t), x1: w[j - 1].x1, raw: w[j - 1].t }); j--; }
     var descWords = w.slice(i, j);
-    return { date: d1, post: d2, desc: descWords.map(function (x) { return x.t; }).join(' '), descX: descWords.length ? descWords[0].x0 : null, amts: amts, line: L };
+    // drop marker symbols some banks print before the description (e.g. CIBC's cash-back multiplier sign)
+    while (descWords.length && /^[^\x00-\x7F]$|^[*†‡§¤•]$/.test(descWords[0].t)) descWords = descWords.slice(1);
+    if (descWords.length && /^[ÝÞ]/.test(descWords[0].t) && descWords[0].t.length > 1) descWords[0] = { t: descWords[0].t.slice(1), x0: descWords[0].x0, x1: descWords[0].x1 };
+    return { date: d1, post: d2, desc: descWords.map(function (x) { return x.t; }).join(' '), descWords: descWords, descX: descWords.length ? descWords[0].x0 : null, amts: amts, line: L };
   }
 
   function cluster(xs, tol) {
@@ -268,22 +271,43 @@ var StmtCore = (function () {
     var descX = dated.map(function (p) { return p.descX; }).filter(function (x) { return x != null; }).sort(function (a, b) { return a - b; });
     var descStart = descX.length ? descX[Math.floor(descX.length / 2)] : null;
 
+    // a "Category" column printed between description and amount (CIBC "Spend Categories"): keep it out of the description
+    var catX = null;
+    lines.forEach(function (L) {
+      if (catX != null || dateAt(L.words, 0, order)) return;
+      for (var q = 0; q < L.words.length; q++) {
+        if (/^categor(y|ies)$/i.test(L.words[q].t)) { var st = q > 0 && /^spend$/i.test(L.words[q - 1].t) ? L.words[q - 1] : L.words[q]; if (L.words.some(function (x) { return /^description$/i.test(x.t); })) catX = st.x0; break; }
+      }
+    });
+    function splitCat(p) {
+      if (catX == null || !p.descWords) return { desc: p.desc, cat: '' };
+      var d = p.descWords.filter(function (x) { return x.x0 < catX - 6; }), c = p.descWords.filter(function (x) { return x.x0 >= catX - 6; });
+      if (!d.length) return { desc: p.desc, cat: '' };
+      return { desc: d.map(function (x) { return x.t; }).join(' '), cat: c.map(function (x) { return x.t; }).join(' ') };
+    }
+    var IN_HEAD = /^(your\s+)?payments\b|payments\s+(and|&)\s+(other\s+)?credits|payments\s+received|^(your\s+)?credits\b|^deposits\b/i;
+    var OUT_HEAD = /new\s+charges|charges\s+(and|&)\s+credits|^(your\s+)?purchases\b|new\s+transactions|^(your\s+)?charges\b/i;
+    var totals = [];
+
     // 2. walk the document in order: dated rows, rows that reuse the date above, wrapped description lines
-    var txns = [], ignored = [], lastDate = null, lastTxn = null, anchors = [];
+    var txns = [], ignored = [], lastDate = null, lastTxn = null, anchors = [], section = null;
     parts.forEach(function (p, idx) {
       var L = p.line;
+      if (!p.date && !p.amts.length && L.text.length < 60) { if (OUT_HEAD.test(L.text)) section = 'out'; else if (IN_HEAD.test(L.text)) section = 'in'; }
+      if (p.amts.length && /^total\b/i.test(p.desc)) totals.push(Math.abs(p.amts[p.amts.length - 1].v));
       if (p.amts.length && BAL_ANCHOR.test(p.desc)) anchors.push({ idx: txns.length, v: Math.abs(p.amts[p.amts.length - 1].v) });
       var isSummary = SUMMARY.test(p.desc);
       if (p.date && p.amts.length && p.desc.length >= 2 && !isSummary) {
-        lastDate = p.date;
-        lastTxn = { date: p.date, desc: p.desc, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: false, descX: p.descX };
+        lastDate = p.date; var sc = splitCat(p);
+        lastTxn = { date: p.date, desc: sc.desc, cat: sc.cat, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: false, descX: p.descX, section: section };
         txns.push(lastTxn); return;
       }
       if (p.date && !p.amts.length) { lastDate = p.date; }
       var inCluster = p.amts.length && p.amts.every(function (a) { return nearest(clusters, a.x1, 16) >= 0; });
-      if (opts.carryDates !== false && !p.date && lastDate && p.amts.length && p.desc.length >= 3 && !isSummary && inCluster &&
-          (descStart == null || Math.abs(p.descX - descStart) < 40)) {
-        lastTxn = { date: lastDate, desc: p.desc, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: true, descX: p.descX };
+      if (opts.carryDates !== false && !p.date && lastDate && lastTxn && lastTxn.page === L.page && p.amts.length && p.desc.length >= 3 && !isSummary && inCluster &&
+          !/\d\.\d{2}\b/.test(p.desc) && (descStart == null || Math.abs(p.descX - descStart) < 40)) {
+        var sc2 = splitCat(p);
+        lastTxn = { date: lastDate, desc: sc2.desc, cat: sc2.cat, amts: p.amts, page: L.page, y: L.y, h: L.h, carried: true, descX: p.descX, section: section };
         txns.push(lastTxn); return;
       }
       if (opts.joinWrapped !== false && lastTxn && !p.date && !p.amts.length && L.page === lastTxn.page &&
@@ -350,7 +374,7 @@ var StmtCore = (function () {
           dir = bal < prevBal ? 'out' : 'in'; if (m.k >= 0) learned[m.k] = (learned[m.k] || 0) + (dir === 'out' ? 1 : -1);
         }
         else if (m.k >= 0 && learned[m.k]) dir = learned[m.k] > 0 ? 'out' : 'in';
-        else if (kind === 'card') dir = v < 0 ? 'in' : 'out';
+        else if (kind === 'card') dir = v < 0 || (t.section === 'in' && v > 0) || /payment.*thank|paiement|payment\s+received|^payment$/i.test(t.desc) ? 'in' : 'out';
         else if (clusters.length - (balK >= 0 ? 1 : 0) >= 2 && m.k >= 0) {
           var nonBal = clusters.map(function (c, i) { return i; }).filter(function (i) { return i !== balK; });
           dir = m.k === nonBal[0] ? 'out' : 'in';
@@ -358,7 +382,7 @@ var StmtCore = (function () {
         if (dir === 'out') debit += Math.abs(v); else credit += Math.abs(v);
       });
       if (bal != null) prevBal = Math.abs(bal);
-      return { date: t.date, desc: t.desc.replace(/\s+/g, ' ').trim(), debit: round(debit), credit: round(credit), carried: t.carried, page: t.page };
+      return { date: t.date, desc: t.desc.replace(/\s+/g, ' ').trim(), cat: (t.cat || '').trim(), debit: round(debit), credit: round(credit), carried: t.carried, page: t.page };
     }).filter(function (r) { return r.debit || r.credit; });
 
     // 5. years
@@ -373,7 +397,18 @@ var StmtCore = (function () {
       var y = r.date.y || (rollover && r.date.m >= 7 ? baseYear - 1 : baseYear);
       r.iso = y + '-' + pad(r.date.m) + '-' + pad(r.date.d);
     });
-    return { rows: rows, ignored: ignored, info: { kind: kind, year: baseYear, years: foundYears, columns: clusters.length, roles: role, textItems: lines.length } };
+    // statement facts printed on credit card statements: closing date, balance, due date
+    var stmt = {};
+    function parseLong(str) { var m = str && str.match(/([A-Za-zÀ-ÿ]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})/); if (!m || !monthOf(m[1])) return null; return m[3] + '-' + pad(monthOf(m[1])) + '-' + pad(+m[2]); }
+    var sm = fullText.match(/statement\s+date[\s:]*([A-Za-zÀ-ÿ]{3,9}\.?\s+\d{1,2},?\s+\d{4})/i) || fullText.match(/statement\s+period[^\n]*?to\s+([A-Za-zÀ-ÿ]{3,9}\.?\s+\d{1,2},?\s+\d{4})/i);
+    if (sm) stmt.date = parseLong(sm[1]);
+    var bm = fullText.match(/(?:total|new|statement)\s+balance[^\d\n]{0,12}\$?\s?([\d,]+\.\d{2})/i) || fullText.match(/amount\s+due\d?[^\d\n]{0,8}\$\s?([\d,]+\.\d{2})/i);
+    if (bm) stmt.balance = parseFloat(bm[1].replace(/,/g, ''));
+    var dm = fullText.match(/pay\s+(?:this\s+amount\s+)?by\s+([A-Za-zÀ-ÿ]{3,9}\.?\s+\d{1,2},?\s+\d{4})/i) || fullText.match(/payment\s+due\s+date[\s:]*([A-Za-zÀ-ÿ]{3,9}\.?\s+\d{1,2},?\s+\d{4})/i);
+    if (dm) stmt.due = parseLong(dm[1]);
+    var outSum = round(rows.reduce(function (a, r) { return a + r.debit; }, 0)), inSum = round(rows.reduce(function (a, r) { return a + r.credit; }, 0));
+    var check = { outMatch: totals.some(function (t) { return Math.abs(t - outSum) < 0.011; }) && outSum > 0, inMatch: totals.some(function (t) { return Math.abs(t - inSum) < 0.011; }) && inSum > 0, outSum: outSum, inSum: inSum, totals: totals };
+    return { rows: rows, ignored: ignored, info: { kind: kind, year: baseYear, years: foundYears, columns: clusters.length, roles: role, textItems: lines.length, check: check, hasCategory: catX != null, stmt: kind === 'card' && stmt.date && stmt.balance != null ? stmt : null } };
   }
 
   function round(v) { return Math.round(v * 100) / 100; }
@@ -381,8 +416,8 @@ var StmtCore = (function () {
 
   function toCsv(rows) {
     var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    return ['Date,Description,Debit,Credit'].concat(rows.map(function (r) {
-      return [r.iso, r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : ''].map(q).join(',');
+    return ['Date,Description,Debit,Credit,Bank category'].concat(rows.map(function (r) {
+      return [r.iso, r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : '', r.cat || ''].map(q).join(',');
     })).join('\n');
   }
 
@@ -451,7 +486,12 @@ function run() {
   }
   msg('');
   $('results').hidden = false; $('sendBox').hidden = false;
-  $('detected').textContent = `Read as a ${r.info.kind === 'card' ? 'credit card' : 'bank account'} statement, year ${r.info.year}.`;
+  const ck = r.info.check, fm = v => fmt.format(v);
+  const checks = [ck.outMatch ? `money out matches the statement's total (${fm(ck.outSum)})` : '', ck.inMatch ? `money in matches (${fm(ck.inSum)})` : ''].filter(Boolean);
+  const st = r.info.stmt;
+  $('detected').innerHTML = esc(`Read as a ${r.info.kind === 'card' ? 'credit card' : 'bank account'} statement, year ${r.info.year}.`) +
+    (checks.length ? ` <b style="color:var(--good)">✓ ${esc(checks.join('; '))}.</b>` : (ck.totals.length ? ' Totals didn\'t match a total printed on the statement, so check the rows.' : '')) +
+    (st ? esc(` Statement ${st.date}: balance ${fm(st.balance)}${st.due ? ', due ' + st.due : ''}.`) : '');
   render();
 }
 
@@ -480,7 +520,7 @@ const csvName = () => (S.file ? S.file.name.replace(/\.pdf$/i, '') : 'statement'
 const csvText = () => StmtCore.toCsv(S.rows.filter(r => r.on));
 
 $('toLedger').addEventListener('click', () => {
-  try { localStorage.setItem('hl-pending-csv', JSON.stringify({ name: csvName(), text: csvText(), n: S.rows.filter(r => r.on).length, ts: Date.now() })); }
+  try { localStorage.setItem('hl-pending-csv', JSON.stringify({ name: csvName(), text: csvText(), n: S.rows.filter(r => r.on).length, stmt: S.result && S.result.info.stmt || null, ts: Date.now() })); }
   catch { msg('Couldn\'t hand the rows to the Ledger on this phone. Use Save CSV instead.', 'bad'); return; }
   location.href = './#import';
 });
